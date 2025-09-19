@@ -14,7 +14,170 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      favorites: {
+        Row: {
+          created_at: string
+          id: string
+          place_data: Json | null
+          place_id: string
+          place_name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          place_data?: Json | null
+          place_id: string
+          place_name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          place_data?: Json | null
+          place_id?: string
+          place_name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      search_history: {
+        Row: {
+          created_at: string
+          id: string
+          location_data: Json | null
+          query: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          location_data?: Json | null
+          query: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          location_data?: Json | null
+          query?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      trip_photos: {
+        Row: {
+          caption: string | null
+          created_at: string
+          id: string
+          photo_url: string
+          trip_id: string
+          user_id: string
+        }
+        Insert: {
+          caption?: string | null
+          created_at?: string
+          id?: string
+          photo_url: string
+          trip_id: string
+          user_id: string
+        }
+        Update: {
+          caption?: string | null
+          created_at?: string
+          id?: string
+          photo_url?: string
+          trip_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trip_photos_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "trips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trips: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          description: string | null
+          distance: number | null
+          duration: number | null
+          end_location: string | null
+          id: string
+          route_data: Json | null
+          start_location: string | null
+          started_at: string | null
+          status: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          distance?: number | null
+          duration?: number | null
+          end_location?: string | null
+          id?: string
+          route_data?: Json | null
+          start_location?: string | null
+          started_at?: string | null
+          status?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          distance?: number | null
+          duration?: number | null
+          end_location?: string | null
+          id?: string
+          route_data?: Json | null
+          start_location?: string | null
+          started_at?: string | null
+          status?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

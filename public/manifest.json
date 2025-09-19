@@ -1,0 +1,28 @@
+{
+  "name": "WanderMate - Your Travel Companion",
+  "short_name": "WanderMate",
+  "description": "Your intelligent travel companion for smart route planning and personalized travel experiences",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#2D7D7D",
+  "theme_color": "#2D7D7D",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/placeholder.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/placeholder.svg", 
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["travel", "navigation", "lifestyle"],
+  "lang": "en",
+  "scope": "/",
+  "prefer_related_applications": false
+}
