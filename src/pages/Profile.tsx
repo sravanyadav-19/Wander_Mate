@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -17,6 +18,7 @@ import {
 } from "lucide-react";
 
 const Profile = () => {
+  const navigate = useNavigate();
   const { user, signOut } = useAuth();
 
   const stats = [
@@ -128,8 +130,14 @@ const Profile = () => {
             <div className="space-y-2">
               {menuItems.map((item, index) => {
                 const Icon = item.icon;
+                const handleClick = () => {
+                  if (item.label === "Settings") {
+                    navigate("/settings");
+                  }
+                  // Add other navigation cases as needed
+                };
                 return (
-                  <Card key={index} className="cursor-pointer transition-smooth hover:shadow-elegant">
+                  <Card key={index} className="cursor-pointer transition-smooth hover:shadow-elegant" onClick={handleClick}>
                     <CardContent className="flex items-center gap-4 p-4">
                       <Icon className="h-5 w-5 text-muted-foreground" />
                       <div className="flex-1">

@@ -1,9 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 import { 
   Search, 
   MapPin, 
@@ -15,12 +19,18 @@ import {
   Coffee,
   Utensils,
   ShoppingBag,
-  Trees
+  Trees,
+  Sparkles
 } from "lucide-react";
 
 const Discover = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [places, setPlaces] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [aiRecommendations, setAiRecommendations] = useState([]);
 
   const categories = [
     { id: "all", label: "All", icon: MapPin },
@@ -31,56 +41,91 @@ const Discover = () => {
     { id: "parks", label: "Parks", icon: Trees }
   ];
 
-  const places = [
-    {
-      id: 1,
-      name: "The High Line",
-      category: "attractions",
-      description: "Elevated park built on former railway tracks",
-      rating: 4.8,
-      distance: "1.2 km",
-      estimatedTime: "15 min",
-      image: "🌿",
-      tags: ["Park", "Walking", "Views"],
-      isOpen: true
-    },
-    {
-      id: 2,
-      name: "Joe Coffee",
-      category: "coffee",
-      description: "Local favorite for artisanal coffee and pastries",
-      rating: 4.6,
-      distance: "0.8 km",
-      estimatedTime: "10 min",
-      image: "☕",
-      tags: ["Coffee", "WiFi", "Quiet"],
-      isOpen: true
-    },
-    {
-      id: 3,
-      name: "Chelsea Market",
-      category: "shopping",
-      description: "Indoor food hall and shopping destination",
-      rating: 4.7,
-      distance: "2.1 km",
-      estimatedTime: "25 min",
-      image: "🏪",
-      tags: ["Food", "Shopping", "Indoor"],
-      isOpen: true
-    },
-    {
-      id: 4,
-      name: "Brooklyn Bridge Park",
-      category: "parks",
-      description: "Waterfront park with stunning city views",
-      rating: 4.9,
-      distance: "3.5 km",
-      estimatedTime: "35 min",
-      image: "🌉",
-      tags: ["Park", "Views", "Outdoor"],
-      isOpen: true
+  // Initialize with mock places, but fetch AI recommendations
+  useEffect(() => {
+    const mockPlaces = [
+      {
+        id: 1,
+        name: "The High Line",
+        category: "attractions",
+        description: "Elevated park built on former railway tracks",
+        rating: 4.8,
+        distance: "1.2 km",
+        estimatedTime: "15 min",
+        image: "🌿",
+        tags: ["Park", "Walking", "Views"],
+        isOpen: true
+      },
+      {
+        id: 2,
+        name: "Joe Coffee",
+        category: "coffee",
+        description: "Local favorite for artisanal coffee and pastries",
+        rating: 4.6,
+        distance: "0.8 km",
+        estimatedTime: "10 min",
+        image: "☕",
+        tags: ["Coffee", "WiFi", "Quiet"],
+        isOpen: true
+      },
+      {
+        id: 3,
+        name: "Chelsea Market",
+        category: "shopping",
+        description: "Indoor food hall and shopping destination",
+        rating: 4.7,
+        distance: "2.1 km",
+        estimatedTime: "25 min",
+        image: "🏪",
+        tags: ["Food", "Shopping", "Indoor"],
+        isOpen: true
+      },
+      {
+        id: 4,
+        name: "Brooklyn Bridge Park",
+        category: "parks",
+        description: "Waterfront park with stunning city views",
+        rating: 4.9,
+        distance: "3.5 km",
+        estimatedTime: "35 min",
+        image: "🌉",
+        tags: ["Park", "Views", "Outdoor"],
+        isOpen: true
+      }
+    ];
+    setPlaces(mockPlaces);
+    fetchAIRecommendations();
+  }, []);
+
+  const fetchAIRecommendations = async () => {
+    if (!user) return;
+    
+    setIsLoading(true);
+    try {
+      const { data } = await supabase.functions.invoke('ai-recommendations', {
+        body: { 
+          location: "New York City",
+          preferences: ["coffee", "parks", "local experiences"],
+          category: selectedCategory
+        }
+      });
+      
+      if (data?.recommendations) {
+        setAiRecommendations(data.recommendations);
+      }
+    } catch (error) {
+      console.error('Error fetching AI recommendations:', error);
+    } finally {
+      setIsLoading(false);
     }
-  ];
+  };
+
+  const handleCategoryChange = (category: string) => {
+    setSelectedCategory(category);
+    if (user) {
+      fetchAIRecommendations();
+    }
+  };
 
   const filteredPlaces = selectedCategory === "all" 
     ? places 
@@ -117,7 +162,7 @@ const Discover = () => {
                     key={category.id}
                     variant={selectedCategory === category.id ? "secondary" : "outline"}
                     size="sm"
-                    onClick={() => setSelectedCategory(category.id)}
+                    onClick={() => handleCategoryChange(category.id)}
                     className={`whitespace-nowrap ${
                       selectedCategory === category.id 
                         ? "bg-white text-primary" 
@@ -134,90 +179,176 @@ const Discover = () => {
         </header>
 
         {/* Places List */}
-        <div className="flex-1 px-4 py-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold">
-              {selectedCategory === "all" ? "All Places" : categories.find(c => c.id === selectedCategory)?.label}
-            </h2>
-            <span className="text-sm text-muted-foreground">
-              {filteredPlaces.length} found
-            </span>
-          </div>
-
-          <div className="space-y-4">
-            {filteredPlaces.map((place) => (
-              <Card key={place.id} className="cursor-pointer transition-smooth hover:shadow-elegant">
-                <CardContent className="p-0">
-                  <div className="flex gap-4 p-4">
-                    {/* Place Image/Icon */}
-                    <div className="w-16 h-16 bg-gradient-primary rounded-lg flex items-center justify-center text-2xl">
-                      {place.image}
-                    </div>
-
-                    {/* Place Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-foreground mb-1">{place.name}</h3>
-                          <p className="text-sm text-muted-foreground line-clamp-2">
-                            {place.description}
-                          </p>
+        <div className="flex-1 px-4 py-6 space-y-6">
+          {/* AI Recommendations */}
+          {aiRecommendations.length > 0 && (
+            <section>
+              <div className="flex items-center gap-2 mb-4">
+                <Sparkles className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-semibold">AI Recommendations</h2>
+              </div>
+              <div className="space-y-3">
+                {aiRecommendations.map((place, index) => (
+                  <Card key={`ai-${index}`} className="cursor-pointer transition-smooth hover:shadow-elegant border-primary/20">
+                    <CardContent className="p-0">
+                      <div className="flex gap-4 p-4">
+                        <div className="w-16 h-16 bg-gradient-primary rounded-lg flex items-center justify-center text-2xl">
+                          🤖
                         </div>
-                        <Button variant="ghost" size="sm" className="ml-2 p-1">
-                          <Heart className="h-4 w-4" />
-                        </Button>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex-1">
+                              <h3 className="font-semibold text-foreground mb-1">{place.name}</h3>
+                              <p className="text-sm text-muted-foreground line-clamp-2">
+                                {place.description}
+                              </p>
+                              {place.aiReason && (
+                                <p className="text-xs text-primary mt-1 italic">
+                                  AI: {place.aiReason}
+                                </p>
+                              )}
+                            </div>
+                            <Button variant="ghost" size="sm" className="ml-2 p-1">
+                              <Heart className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <div className="flex flex-wrap gap-1 mb-3">
+                            {place.tags?.map((tag, tagIndex) => (
+                              <Badge key={tagIndex} variant="secondary" className="text-xs">
+                                {tag}
+                              </Badge>
+                            ))}
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                              <div className="flex items-center gap-1">
+                                <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                                <span>{place.rating}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                <span>{place.estimatedTime}</span>
+                              </div>
+                            </div>
+                            <Button size="sm" onClick={() => navigate(`/place/${index + 100}`)}>
+                              View Details
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Regular Places */}
+          <section>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">
+                {selectedCategory === "all" ? "All Places" : categories.find(c => c.id === selectedCategory)?.label}
+              </h2>
+              <span className="text-sm text-muted-foreground">
+                {filteredPlaces.length} found
+              </span>
+            </div>
+
+            <div className="space-y-4">
+              {filteredPlaces.map((place) => (
+                <Card 
+                  key={place.id} 
+                  className="cursor-pointer transition-smooth hover:shadow-elegant"
+                  onClick={() => navigate(`/place/${place.id}`)}
+                >
+                  <CardContent className="p-0">
+                    <div className="flex gap-4 p-4">
+                      <div className="w-16 h-16 bg-gradient-primary rounded-lg flex items-center justify-center text-2xl">
+                        {place.image}
                       </div>
 
-                      {/* Tags */}
-                      <div className="flex flex-wrap gap-1 mb-3">
-                        {place.tags.map((tag, index) => (
-                          <Badge key={index} variant="secondary" className="text-xs">
-                            {tag}
-                          </Badge>
-                        ))}
-                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-foreground mb-1">{place.name}</h3>
+                            <p className="text-sm text-muted-foreground line-clamp-2">
+                              {place.description}
+                            </p>
+                          </div>
+                          <Button variant="ghost" size="sm" className="ml-2 p-1">
+                            <Heart className="h-4 w-4" />
+                          </Button>
+                        </div>
 
-                      {/* Stats and Action */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                            <span>{place.rating}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <MapPin className="h-3 w-3" />
-                            <span>{place.distance}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            <span>{place.estimatedTime}</span>
-                          </div>
-                          {place.isOpen && (
-                            <Badge variant="outline" className="text-xs text-green-600 border-green-600">
-                              Open
+                        <div className="flex flex-wrap gap-1 mb-3">
+                          {place.tags.map((tag, index) => (
+                            <Badge key={index} variant="secondary" className="text-xs">
+                              {tag}
                             </Badge>
-                          )}
+                          ))}
                         </div>
 
-                        <Button size="sm">
-                          Get Directions
-                        </Button>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                            <div className="flex items-center gap-1">
+                              <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                              <span>{place.rating}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <MapPin className="h-3 w-3" />
+                              <span>{place.distance}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              <span>{place.estimatedTime}</span>
+                            </div>
+                            {place.isOpen && (
+                              <Badge variant="outline" className="text-xs text-green-600 border-green-600">
+                                Open
+                              </Badge>
+                            )}
+                          </div>
+
+                          <Button 
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/route/${place.name}`);
+                            }}
+                          >
+                            Get Directions
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </section>
 
-          {filteredPlaces.length === 0 && (
+          {filteredPlaces.length === 0 && !isLoading && (
             <div className="text-center py-12">
               <MapPin className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-medium mb-2">No places found</h3>
               <p className="text-muted-foreground">Try adjusting your search or category filter.</p>
             </div>
           )}
+
+          {isLoading && (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <Card key={i} className="animate-pulse">
+                  <CardContent className="p-4">
+                    <div className="h-4 bg-muted rounded mb-2"></div>
+                    <div className="h-3 bg-muted rounded w-2/3"></div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
+
       </div>
     </AppLayout>
   );
