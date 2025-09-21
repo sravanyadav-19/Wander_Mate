@@ -69,7 +69,7 @@ const Navigation = () => {
   };
 
   return (
-    <AppLayout hideNavigation={true}>
+    <AppLayout showBottomNav={false}>
       <div className="flex flex-col h-screen bg-slate-900 text-white">
         {/* Map Area */}
         <div className="flex-1 relative bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center">

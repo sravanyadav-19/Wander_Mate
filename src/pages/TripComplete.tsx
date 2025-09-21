@@ -135,7 +135,7 @@ const TripComplete = () => {
   };
 
   return (
-    <AppLayout hideNavigation={true}>
+    <AppLayout showBottomNav={false}>
       <div className="flex flex-col min-h-screen">
         {/* Success Header */}
         <header className="gradient-hero text-white px-4 py-8 text-center">
