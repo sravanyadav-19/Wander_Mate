@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      achievements: {
+        Row: {
+          badge_color: string
+          category: string
+          created_at: string
+          description: string
+          icon: string
+          id: string
+          name: string
+          requirement_type: string
+          requirement_value: number | null
+        }
+        Insert: {
+          badge_color?: string
+          category?: string
+          created_at?: string
+          description: string
+          icon: string
+          id?: string
+          name: string
+          requirement_type: string
+          requirement_value?: number | null
+        }
+        Update: {
+          badge_color?: string
+          category?: string
+          created_at?: string
+          description?: string
+          icon?: string
+          id?: string
+          name?: string
+          requirement_type?: string
+          requirement_value?: number | null
+        }
+        Relationships: []
+      }
       favorites: {
         Row: {
           created_at: string
@@ -173,6 +209,83 @@ export type Database = {
           started_at?: string | null
           status?: string | null
           title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_achievements: {
+        Row: {
+          achievement_id: string
+          earned_at: string
+          id: string
+          is_unlocked: boolean | null
+          progress: number | null
+          user_id: string
+        }
+        Insert: {
+          achievement_id: string
+          earned_at?: string
+          id?: string
+          is_unlocked?: boolean | null
+          progress?: number | null
+          user_id: string
+        }
+        Update: {
+          achievement_id?: string
+          earned_at?: string
+          id?: string
+          is_unlocked?: boolean | null
+          progress?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_achievements_achievement_id_fkey"
+            columns: ["achievement_id"]
+            isOneToOne: false
+            referencedRelation: "achievements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_statistics: {
+        Row: {
+          countries_visited: number | null
+          created_at: string
+          favorite_travel_mode: string | null
+          id: string
+          longest_trip_distance: number | null
+          places_visited: number | null
+          total_distance: number | null
+          total_trip_duration: number | null
+          total_trips: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          countries_visited?: number | null
+          created_at?: string
+          favorite_travel_mode?: string | null
+          id?: string
+          longest_trip_distance?: number | null
+          places_visited?: number | null
+          total_distance?: number | null
+          total_trip_duration?: number | null
+          total_trips?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          countries_visited?: number | null
+          created_at?: string
+          favorite_travel_mode?: string | null
+          id?: string
+          longest_trip_distance?: number | null
+          places_visited?: number | null
+          total_distance?: number | null
+          total_trip_duration?: number | null
+          total_trips?: number | null
           updated_at?: string
           user_id?: string
         }
