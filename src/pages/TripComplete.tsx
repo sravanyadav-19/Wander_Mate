@@ -8,13 +8,13 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { SocialShareButton } from "@/components/social/SocialShareButton";
 import { 
   CheckCircle,
   Camera,
   Star,
   MapPin,
   Clock,
-  Share,
   Home,
   Navigation
 } from "lucide-react";
@@ -121,17 +121,20 @@ const TripComplete = () => {
   };
 
   const shareTrip = () => {
-    if (navigator.share) {
-      navigator.share({
-        title: `My trip to ${tripData.endLocation}`,
-        text: `Just completed a ${tripData.distance} journey in ${tripData.duration}!`,
-        url: window.location.href
-      });
-    } else {
-      // Fallback for browsers without Web Share API
-      navigator.clipboard.writeText(window.location.href);
-      toast.success("Trip link copied to clipboard!");
-    }
+    const shareData = {
+      title: `My trip to ${tripData.endLocation}`,
+      text: `Just completed a ${tripData.distance} journey in ${tripData.duration}! 🗺️✨`,
+      url: window.location.href,
+    };
+
+    return (
+      <SocialShareButton 
+        data={shareData}
+        variant="outline"
+        className="flex-1"
+        showLabel={true}
+      />
+    );
   };
 
   return (
@@ -264,14 +267,7 @@ const TripComplete = () => {
         {/* Action Buttons */}
         <div className="sticky bottom-0 bg-background/95 backdrop-blur-sm border-t border-border p-4 space-y-3">
           <div className="flex gap-3">
-            <Button 
-              variant="outline" 
-              className="flex-1"
-              onClick={shareTrip}
-            >
-              <Share className="h-4 w-4 mr-2" />
-              Share Trip
-            </Button>
+            {shareTrip()}
             <Button 
               className="flex-1"
               onClick={saveTrip}

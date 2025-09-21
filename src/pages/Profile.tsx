@@ -1,167 +1,278 @@
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { AchievementBadge } from "@/components/gamification/AchievementBadge";
+import { UserStatistics } from "@/components/gamification/UserStatistics";
+import { useAchievements } from "@/hooks/useAchievements";
 import { 
   User, 
-  Settings, 
   MapPin, 
   Clock, 
-  Camera, 
-  Star,
+  Settings, 
+  LogOut,
+  Camera,
+  Edit,
   Trophy,
-  Target,
-  Calendar,
-  LogOut
+  Award,
+  TrendingUp
 } from "lucide-react";
 
 const Profile = () => {
-  const navigate = useNavigate();
   const { user, signOut } = useAuth();
+  const [profile, setProfile] = useState<any>(null);
+  const { achievements, userStats, loading } = useAchievements();
+  const [stats, setStats] = useState({
+    totalTrips: 12,
+    totalDistance: "1,234 km", 
+    totalTime: "45 hours",
+    favoriteDestination: "Central Park"
+  });
 
-  const stats = [
-    { icon: MapPin, label: "Total Distance", value: "142.5 km", color: "text-primary" },
-    { icon: Clock, label: "Total Time", value: "28h 45m", color: "text-secondary" },
-    { icon: Calendar, label: "Trips Completed", value: "23", color: "text-accent" },
-    { icon: Camera, label: "Photos Taken", value: "156", color: "text-primary" }
-  ];
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!user) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
 
-  const achievements = [
-    { icon: Trophy, title: "First Journey", description: "Completed your first trip", unlocked: true },
-    { icon: Target, title: "Explorer", description: "Visit 10 different places", unlocked: true },
-    { icon: Star, title: "Navigator", description: "Complete 25 trips", unlocked: false },
-    { icon: MapPin, title: "Wanderer", description: "Travel 200km total", unlocked: false }
-  ];
+        if (error && error.code !== 'PGRST116') {
+          throw error;
+        }
+        setProfile(data);
+      } catch (error) {
+        console.error('Error fetching profile:', error);
+      }
+    };
 
-  const menuItems = [
-    { icon: Settings, label: "Settings", description: "App preferences and privacy" },
-    { icon: MapPin, label: "Saved Places", description: "Your favorite destinations" },
-    { icon: Clock, label: "Trip History", description: "View all your journeys" },
-    { icon: Star, label: "Reviews", description: "Rate your experiences" }
-  ];
+    fetchProfile();
+  }, [user]);
 
   return (
     <AppLayout>
       <div className="flex flex-col min-h-screen">
-        {/* Profile Header */}
+        {/* Header */}
         <header className="gradient-hero text-white px-4 py-8">
           <div className="flex items-center gap-4 mb-6">
-            <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
-              <User className="h-10 w-10 text-white" />
+            <div className="relative">
+              <div className="h-20 w-20 rounded-full bg-white/20 flex items-center justify-center">
+                {profile?.avatar_url ? (
+                  <img 
+                    src={profile.avatar_url} 
+                    alt="Profile"
+                    className="h-20 w-20 rounded-full object-cover"
+                  />
+                ) : (
+                  <User className="h-10 w-10 text-white" />
+                )}
+              </div>
+              <Button
+                size="icon"
+                variant="secondary"
+                className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full"
+              >
+                <Camera className="h-4 w-4" />
+              </Button>
             </div>
             <div className="flex-1">
-              <h1 className="text-2xl font-bold">
-                {user?.user_metadata?.full_name || "WanderMate User"}
+              <h1 className="text-2xl font-bold mb-1">
+                {profile?.full_name || user?.email?.split('@')[0] || 'Travel Explorer'}
               </h1>
-              <p className="text-white/80">{user?.email}</p>
-              <p className="text-white/60 text-sm mt-1">Member since January 2024</p>
+              <p className="text-white/80 text-sm mb-2">
+                {user?.email}
+              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-white/80 hover:text-white hover:bg-white/10 p-0 h-auto"
+              >
+                <Edit className="h-3 w-3 mr-1" />
+                Edit Profile
+              </Button>
             </div>
           </div>
 
           {/* Quick Stats */}
-          <div className="grid grid-cols-2 gap-3">
-            {stats.slice(0, 2).map((stat, index) => {
-              const Icon = stat.icon;
-              return (
-                <div key={index} className="bg-white/10 backdrop-blur-sm rounded-lg p-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Icon className="h-4 w-4" />
-                    <span className="text-sm font-medium">{stat.label}</span>
-                  </div>
-                  <p className="text-xl font-bold">{stat.value}</p>
-                </div>
-              );
-            })}
-          </div>
+          {userStats ? (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold">{userStats.total_trips || 0}</div>
+                <div className="text-white/70 text-sm">Trips</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold">{(userStats.total_distance || 0).toFixed(1)} km</div>
+                <div className="text-white/70 text-sm">Distance</div>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold">0</div>
+                <div className="text-white/70 text-sm">Trips</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold">0 km</div>
+                <div className="text-white/70 text-sm">Distance</div>
+              </div>
+            </div>
+          )}
         </header>
 
-        <div className="flex-1 px-4 py-6 space-y-6">
-          {/* Full Stats */}
-          <section>
-            <h2 className="text-lg font-semibold mb-4">Your Journey Stats</h2>
-            <div className="grid grid-cols-2 gap-3">
-              {stats.map((stat, index) => {
-                const Icon = stat.icon;
-                return (
-                  <Card key={index}>
-                    <CardContent className="p-4 text-center">
-                      <Icon className={`h-6 w-6 ${stat.color} mx-auto mb-2`} />
-                      <p className="text-2xl font-bold">{stat.value}</p>
-                      <p className="text-sm text-muted-foreground">{stat.label}</p>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          </section>
+        <div className="flex-1 px-4 py-6">
+          <Tabs defaultValue="overview" className="space-y-6">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="overview" className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4" />
+                Overview
+              </TabsTrigger>
+              <TabsTrigger value="achievements" className="flex items-center gap-2">
+                <Trophy className="h-4 w-4" />
+                Achievements
+              </TabsTrigger>
+              <TabsTrigger value="badges" className="flex items-center gap-2">
+                <Award className="h-4 w-4" />
+                Badges
+              </TabsTrigger>
+            </TabsList>
 
-          {/* Achievements */}
-          <section>
-            <h2 className="text-lg font-semibold mb-4">Achievements</h2>
-            <div className="grid grid-cols-2 gap-3">
-              {achievements.map((achievement, index) => {
-                const Icon = achievement.icon;
-                return (
-                  <Card 
-                    key={index} 
-                    className={`${achievement.unlocked ? 'bg-primary/5 border-primary/20' : 'opacity-60'}`}
-                  >
-                    <CardContent className="p-4 text-center">
-                      <Icon className={`h-6 w-6 mx-auto mb-2 ${achievement.unlocked ? 'text-primary' : 'text-muted-foreground'}`} />
-                      <h3 className="font-medium text-sm">{achievement.title}</h3>
-                      <p className="text-xs text-muted-foreground mt-1">{achievement.description}</p>
-                      {achievement.unlocked && (
-                        <div className="mt-2">
-                          <span className="inline-block w-2 h-2 bg-primary rounded-full"></span>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          </section>
+            {/* Overview Tab */}
+            <TabsContent value="overview" className="space-y-6">
+              {userStats && !loading ? (
+                <UserStatistics 
+                  stats={userStats} 
+                  achievements={achievements}
+                />
+              ) : (
+                <Card>
+                  <CardContent className="p-6 text-center">
+                    <p className="text-muted-foreground">Complete your first trip to see your travel statistics!</p>
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
 
-          {/* Menu Items */}
-          <section>
-            <h2 className="text-lg font-semibold mb-4">Settings & More</h2>
-            <div className="space-y-2">
-              {menuItems.map((item, index) => {
-                const Icon = item.icon;
-                const handleClick = () => {
-                  if (item.label === "Settings") {
-                    navigate("/settings");
-                  }
-                  // Add other navigation cases as needed
-                };
-                return (
-                  <Card key={index} className="cursor-pointer transition-smooth hover:shadow-elegant" onClick={handleClick}>
-                    <CardContent className="flex items-center gap-4 p-4">
-                      <Icon className="h-5 w-5 text-muted-foreground" />
-                      <div className="flex-1">
-                        <h3 className="font-medium">{item.label}</h3>
-                        <p className="text-sm text-muted-foreground">{item.description}</p>
+            {/* Achievements Tab */}
+            <TabsContent value="achievements" className="space-y-6">
+              {loading ? (
+                <Card>
+                  <CardContent className="p-6 text-center">
+                    <p className="text-muted-foreground">Loading achievements...</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <>
+                  {/* Unlocked Achievements */}
+                  {achievements.filter(a => a.is_unlocked).length > 0 && (
+                    <div>
+                      <h3 className="text-lg font-semibold mb-4 text-primary">Unlocked Achievements</h3>
+                      <div className="grid gap-3">
+                        {achievements
+                          .filter(a => a.is_unlocked)
+                          .map(achievement => (
+                            <AchievementBadge
+                              key={achievement.id}
+                              achievement={achievement}
+                              userProgress={achievement.progress}
+                              isUnlocked={true}
+                            />
+                          ))}
                       </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          </section>
+                    </div>
+                  )}
 
-          <Separator />
+                  {/* Progress Achievements */}
+                  {achievements.filter(a => !a.is_unlocked).length > 0 && (
+                    <div>
+                      <h3 className="text-lg font-semibold mb-4">In Progress</h3>
+                      <div className="grid gap-3">
+                        {achievements
+                          .filter(a => !a.is_unlocked)
+                          .map(achievement => (
+                            <AchievementBadge
+                              key={achievement.id}
+                              achievement={achievement}
+                              userProgress={achievement.progress}
+                              isUnlocked={false}
+                            />
+                          ))}
+                      </div>
+                    </div>
+                  )}
 
-          {/* Sign Out Button */}
-          <Button 
-            variant="outline" 
-            className="w-full flex items-center gap-2 text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
-            onClick={signOut}
-          >
-            <LogOut className="h-4 w-4" />
-            Sign Out
-          </Button>
+                  {achievements.length === 0 && (
+                    <Card>
+                      <CardContent className="p-6 text-center">
+                        <Trophy className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                        <p className="text-muted-foreground">Start traveling to unlock achievements!</p>
+                      </CardContent>
+                    </Card>
+                  )}
+                </>
+              )}
+            </TabsContent>
+
+            {/* Badges Tab */}
+            <TabsContent value="badges" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Achievement Categories</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {['trips', 'distance', 'social', 'photos', 'favorites', 'special'].map(category => {
+                    const categoryAchievements = achievements.filter(a => a.category === category);
+                    const unlockedCount = categoryAchievements.filter(a => a.is_unlocked).length;
+                    
+                    return (
+                      <div key={category} className="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
+                        <div>
+                          <div className="font-medium capitalize">{category}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {unlockedCount} of {categoryAchievements.length} unlocked
+                          </div>
+                        </div>
+                        <div className="text-lg font-bold text-primary">
+                          {categoryAchievements.length > 0 
+                            ? Math.round((unlockedCount / categoryAchievements.length) * 100)
+                            : 0}%
+                        </div>
+                      </div>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+
+          <Separator className="my-6" />
+
+          {/* Settings & Actions */}
+          <div className="space-y-3">
+            <Button 
+              variant="outline" 
+              className="w-full justify-start"
+              onClick={() => window.location.href = "/settings"}
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Settings & Preferences
+            </Button>
+            
+            <Button 
+              variant="outline" 
+              className="w-full justify-start text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
+              onClick={signOut}
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Sign Out
+            </Button>
+          </div>
         </div>
       </div>
     </AppLayout>

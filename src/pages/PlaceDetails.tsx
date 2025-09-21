@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { SocialShareButton } from "@/components/social/SocialShareButton";
 import { 
   ArrowLeft,
   MapPin, 
@@ -14,7 +15,6 @@ import {
   Globe,
   Navigation,
   Heart,
-  Share,
   Camera,
   Calendar
 } from "lucide-react";
@@ -92,9 +92,16 @@ const PlaceDetails = () => {
               >
                 <Heart className={`h-5 w-5 ${isFavorite ? 'fill-red-500 text-red-500' : ''}`} />
               </Button>
-              <Button variant="ghost" size="sm" className="p-2">
-                <Share className="h-5 w-5" />
-              </Button>
+              <SocialShareButton 
+                data={{
+                  title: place.name,
+                  text: `Check out this amazing place: ${place.name}! ${place.description.slice(0, 100)}...`,
+                  url: window.location.href
+                }}
+                variant="ghost"
+                size="sm"
+                showLabel={false}
+              />
             </div>
           </div>
         </header>
