@@ -31,6 +31,7 @@ const Discover = () => {
   const [places, setPlaces] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [aiRecommendations, setAiRecommendations] = useState([]);
+  const [currentLocation, setCurrentLocation] = useState("Getting location...");
 
   const categories = [
     { id: "all", label: "All", icon: MapPin },
@@ -41,7 +42,7 @@ const Discover = () => {
     { id: "parks", label: "Parks", icon: Trees }
   ];
 
-  // Initialize with mock places, but fetch AI recommendations
+  // Initialize with mock places and get current location
   useEffect(() => {
     const mockPlaces = [
       {
@@ -94,17 +95,49 @@ const Discover = () => {
       }
     ];
     setPlaces(mockPlaces);
-    fetchAIRecommendations();
+    
+    // Get current location
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          try {
+            const { latitude, longitude } = position.coords;
+            const response = await fetch(
+              `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+            );
+            const data = await response.json();
+            const locationName = data.city && data.countryCode 
+              ? `${data.city}, ${data.countryCode}` 
+              : "Current Location";
+            setCurrentLocation(locationName);
+            
+            // Fetch AI recommendations with real location
+            fetchAIRecommendations(locationName);
+          } catch (error) {
+            console.error('Error getting location:', error);
+            setCurrentLocation("Unknown Location");
+            fetchAIRecommendations("New York City");
+          }
+        },
+        (error) => {
+          console.error('Error getting location:', error);
+          setCurrentLocation("Location unavailable");
+          fetchAIRecommendations("New York City");
+        }
+      );
+    } else {
+      fetchAIRecommendations("New York City");
+    }
   }, []);
 
-  const fetchAIRecommendations = async () => {
+  const fetchAIRecommendations = async (location?: string) => {
     if (!user) return;
     
     setIsLoading(true);
     try {
       const { data } = await supabase.functions.invoke('ai-recommendations', {
         body: { 
-          location: "New York City",
+          location: location || currentLocation || "Current Location",
           preferences: ["coffee", "parks", "local experiences"],
           category: selectedCategory
         }
@@ -123,7 +156,7 @@ const Discover = () => {
   const handleCategoryChange = (category: string) => {
     setSelectedCategory(category);
     if (user) {
-      fetchAIRecommendations();
+      fetchAIRecommendations(currentLocation);
     }
   };
 
@@ -139,7 +172,7 @@ const Discover = () => {
           <div className="space-y-4">
             <div>
               <h1 className="text-2xl font-bold">Discover</h1>
-              <p className="text-white/80">Find amazing places near you</p>
+              <p className="text-white/80">Find amazing places near {currentLocation}</p>
             </div>
 
             {/* Search Bar */}
