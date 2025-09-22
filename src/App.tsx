@@ -10,6 +10,7 @@ import Search from "./pages/Search";
 import History from "./pages/History";
 import Profile from "./pages/Profile";
 import Discover from "./pages/Discover";
+import TripPlanning from "./pages/TripPlanning";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -69,6 +70,16 @@ const AppRoutes = () => {
       <Route path="/profile" element={
         <ProtectedRoute>
           <Profile />
+        </ProtectedRoute>
+      } />
+      <Route path="/trip-planning" element={
+        <ProtectedRoute>
+          <TripPlanning />
+        </ProtectedRoute>
+      } />
+      <Route path="/plan-trip" element={
+        <ProtectedRoute>
+          <TripPlanning />
         </ProtectedRoute>
       } />
       <Route path="*" element={<NotFound />} />
