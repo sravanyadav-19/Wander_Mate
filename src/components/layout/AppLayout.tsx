@@ -4,18 +4,26 @@ import { BottomNavigation } from "./BottomNavigation";
 interface AppLayoutProps {
   children: ReactNode;
   showBottomNav?: boolean;
+  // Deprecated: use showBottomNav instead. Kept for backward compatibility.
+  hideNavigation?: boolean;
 }
 
-export const AppLayout = ({ children, showBottomNav = true }: AppLayoutProps) => {
+export const AppLayout = ({ children, showBottomNav, hideNavigation }: AppLayoutProps) => {
+  const shouldShowBottomNav = hideNavigation !== undefined
+    ? !hideNavigation
+    : showBottomNav !== undefined
+      ? showBottomNav
+      : true;
+
   return (
     <div className="min-h-screen bg-background">
       <main className={cn(
         "w-full",
-        showBottomNav ? "pb-16" : ""
+        shouldShowBottomNav ? "pb-16" : ""
       )}>
         {children}
       </main>
-      {showBottomNav && <BottomNavigation />}
+      {shouldShowBottomNav && <BottomNavigation />}
     </div>
   );
 };
