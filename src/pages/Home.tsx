@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,8 +9,43 @@ import { Search, MapPin, Clock, Compass, Route, Star } from "lucide-react";
 
 const Home = () => {
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentLocation, setCurrentLocation] = useState("Getting location...");
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const getLocation = () => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            try {
+              const { latitude, longitude } = position.coords;
+              // Use reverse geocoding to get city name
+              const response = await fetch(
+                `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+              );
+              const data = await response.json();
+              setCurrentLocation(data.city && data.countryCode 
+                ? `${data.city}, ${data.countryCode}` 
+                : "Unknown Location"
+              );
+            } catch (error) {
+              console.error('Error getting location name:', error);
+              setCurrentLocation("Location unavailable");
+            }
+          },
+          (error) => {
+            console.error('Error getting location:', error);
+            setCurrentLocation("Location unavailable");
+          }
+        );
+      } else {
+        setCurrentLocation("Location not supported");
+      }
+    };
+
+    getLocation();
+  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,7 +96,7 @@ const Home = () => {
             </div>
             <div className="flex items-center gap-2">
               <MapPin className="h-5 w-5" />
-              <span className="text-sm">New York, NY</span>
+              <span className="text-sm">{currentLocation}</span>
             </div>
           </div>
 

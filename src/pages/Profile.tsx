@@ -26,12 +26,6 @@ const Profile = () => {
   const { user, signOut } = useAuth();
   const [profile, setProfile] = useState<any>(null);
   const { achievements, userStats, loading } = useAchievements();
-  const [stats, setStats] = useState({
-    totalTrips: 12,
-    totalDistance: "1,234 km", 
-    totalTime: "45 hours",
-    favoriteDestination: "Central Park"
-  });
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -42,9 +36,9 @@ const Profile = () => {
           .from('profiles')
           .select('*')
           .eq('id', user.id)
-          .single();
+          .maybeSingle();
 
-        if (error && error.code !== 'PGRST116') {
+        if (error) {
           throw error;
         }
         setProfile(data);
