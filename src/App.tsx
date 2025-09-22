@@ -11,6 +11,7 @@ import History from "./pages/History";
 import Profile from "./pages/Profile";
 import Discover from "./pages/Discover";
 import TripPlanning from "./pages/TripPlanning";
+import RouteDetails from "./pages/RouteDetails";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -80,6 +81,11 @@ const AppRoutes = () => {
       <Route path="/plan-trip" element={
         <ProtectedRoute>
           <TripPlanning />
+        </ProtectedRoute>
+      } />
+      <Route path="/route/:destination" element={
+        <ProtectedRoute>
+          <RouteDetails />
         </ProtectedRoute>
       } />
       <Route path="*" element={<NotFound />} />
