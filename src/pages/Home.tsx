@@ -198,12 +198,12 @@ const Home = () => {
 
           {/* Search Bar */}
           <form onSubmit={handleSearch} className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4 z-10" />
             <Input
               placeholder="Where to?"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-white/95 border-0 shadow-elegant"
+              className="pl-10 bg-white/95 border-0 shadow-elegant text-gray-900 placeholder:text-gray-500"
             />
           </form>
         </header>
