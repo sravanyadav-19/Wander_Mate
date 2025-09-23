@@ -18,35 +18,118 @@ const Search = () => {
     "Statue of Liberty"
   ];
 
-  const searchResults = [
-    {
-      id: 1,
-      name: "Central Park",
-      address: "New York, NY 10024",
-      distance: "2.5 km",
-      rating: 4.8,
-      category: "Park",
-      estimatedTime: "15 min"
-    },
-    {
-      id: 2,
-      name: "Brooklyn Bridge",
-      address: "Brooklyn Bridge, New York, NY",
-      distance: "5.1 km",
-      rating: 4.9,
-      category: "Landmark",
-      estimatedTime: "25 min"
-    },
-    {
-      id: 3,
-      name: "Museum of Modern Art",
-      address: "11 W 53rd St, New York, NY",
-      distance: "3.8 km",
-      rating: 4.7,
-      category: "Museum",
-      estimatedTime: "20 min"
+  // Generate search results based on the query
+  const getSearchResults = (searchQuery: string) => {
+    const queryLower = searchQuery.toLowerCase();
+    
+    // Results for Mumbai
+    if (queryLower.includes('mumbai') || queryLower.includes('bombay')) {
+      return [
+        {
+          id: 1,
+          name: "Gateway of India",
+          address: "Apollo Bandar, Colaba, Mumbai, Maharashtra 400001",
+          distance: "2.1 km",
+          rating: 4.6,
+          category: "Landmark",
+          estimatedTime: "12 min"
+        },
+        {
+          id: 2,
+          name: "Marine Drive",
+          address: "Marine Drive, Mumbai, Maharashtra",
+          distance: "3.8 km",
+          rating: 4.5,
+          category: "Promenade",
+          estimatedTime: "18 min"
+        },
+        {
+          id: 3,
+          name: "Chhatrapati Shivaji Terminus",
+          address: "Chhatrapati Shivaji Terminus Area, Fort, Mumbai, Maharashtra 400001",
+          distance: "4.2 km",
+          rating: 4.7,
+          category: "Heritage Site",
+          estimatedTime: "22 min"
+        },
+        {
+          id: 4,
+          name: "Elephanta Caves",
+          address: "Elephanta Island, Mumbai, Maharashtra",
+          distance: "15.3 km",
+          rating: 4.4,
+          category: "Historical Site",
+          estimatedTime: "45 min"
+        }
+      ];
     }
-  ];
+    
+    // Results for Delhi
+    if (queryLower.includes('delhi')) {
+      return [
+        {
+          id: 1,
+          name: "Red Fort",
+          address: "Netaji Subhash Marg, Lal Qila, Chandni Chowk, New Delhi, Delhi 110006",
+          distance: "1.8 km",
+          rating: 4.5,
+          category: "Historical Fort",
+          estimatedTime: "10 min"
+        },
+        {
+          id: 2,
+          name: "India Gate",
+          address: "Rajpath, India Gate, New Delhi, Delhi 110001",
+          distance: "3.2 km",
+          rating: 4.6,
+          category: "Memorial",
+          estimatedTime: "15 min"
+        },
+        {
+          id: 3,
+          name: "Lotus Temple",
+          address: "Lotus Temple Rd, Bahapur, Shambhu Dayal Bagh, Kalkaji, New Delhi, Delhi 110019",
+          distance: "8.5 km",
+          rating: 4.7,
+          category: "Temple",
+          estimatedTime: "28 min"
+        }
+      ];
+    }
+    
+    // Default results for other searches
+    return [
+      {
+        id: 1,
+        name: `Popular attractions in ${searchQuery}`,
+        address: `${searchQuery} city center`,
+        distance: "2.5 km",
+        rating: 4.5,
+        category: "Attractions",
+        estimatedTime: "15 min"
+      },
+      {
+        id: 2,
+        name: `${searchQuery} Historical Sites`,
+        address: `Heritage area, ${searchQuery}`,
+        distance: "4.1 km",
+        rating: 4.3,
+        category: "Heritage",
+        estimatedTime: "20 min"
+      },
+      {
+        id: 3,
+        name: `${searchQuery} Local Markets`,
+        address: `Market district, ${searchQuery}`,
+        distance: "1.8 km",
+        rating: 4.4,
+        category: "Shopping",
+        estimatedTime: "12 min"
+      }
+    ];
+  };
+
+  const searchResults = getSearchResults(query);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
