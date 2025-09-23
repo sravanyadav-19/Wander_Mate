@@ -29,37 +29,37 @@ const Search = () => {
           id: 1,
           name: "Gateway of India",
           address: "Apollo Bandar, Colaba, Mumbai, Maharashtra 400001",
-          distance: "2.1 km",
+          distance: "0.8 km",
           rating: 4.6,
           category: "Landmark",
-          estimatedTime: "12 min"
+          estimatedTime: "3 min"
         },
         {
           id: 2,
           name: "Marine Drive",
           address: "Marine Drive, Mumbai, Maharashtra",
-          distance: "3.8 km",
+          distance: "1.2 km",
           rating: 4.5,
           category: "Promenade",
-          estimatedTime: "18 min"
+          estimatedTime: "4 min"
         },
         {
           id: 3,
           name: "Chhatrapati Shivaji Terminus",
           address: "Chhatrapati Shivaji Terminus Area, Fort, Mumbai, Maharashtra 400001",
-          distance: "4.2 km",
+          distance: "2.5 km",
           rating: 4.7,
           category: "Heritage Site",
-          estimatedTime: "22 min"
+          estimatedTime: "8 min"
         },
         {
           id: 4,
           name: "Elephanta Caves",
           address: "Elephanta Island, Mumbai, Maharashtra",
-          distance: "15.3 km",
+          distance: "11.2 km",
           rating: 4.4,
           category: "Historical Site",
-          estimatedTime: "45 min"
+          estimatedTime: "1 hr 15 min"
         }
       ];
     }
