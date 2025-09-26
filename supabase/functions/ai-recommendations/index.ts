@@ -107,7 +107,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in ai-recommendations function:', error);
     return new Response(JSON.stringify({ 
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
       recommendations: { recommendations: [] }
     }), {
       status: 500,

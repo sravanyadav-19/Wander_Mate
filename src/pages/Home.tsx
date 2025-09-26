@@ -36,13 +36,12 @@ const Home = () => {
                 : "Unknown Location"
               );
 
-              // Fetch weather data
-              const weatherResponse = await fetch(
-                `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&appid=demo_key&units=metric`
-              ).catch(() => null);
+              // Fetch weather data using our edge function
+              const { data: weather, error: weatherError } = await supabase.functions.invoke('current-weather', {
+                body: { lat: latitude, lon: longitude }
+              });
               
-              if (weatherResponse?.ok) {
-                const weather = await weatherResponse.json();
+              if (weather && !weatherError) {
                 setWeatherData({
                   temp: Math.round(weather.main.temp),
                   condition: weather.weather[0].main,
@@ -52,25 +51,27 @@ const Home = () => {
                   icon: weather.weather[0].icon
                 });
               } else {
+                console.warn('Weather API error:', weatherError);
                 // Fallback weather data
                 setWeatherData({
-                  temp: 22,
+                  temp: 28,
                   condition: "Clear",
                   description: "sunny",
-                  high: 25,
-                  low: 18,
+                  high: 32,
+                  low: 24,
                   icon: "01d"
                 });
               }
             } catch (error) {
               console.error('Error getting location name:', error);
               setCurrentLocation("Location unavailable");
+              // Use more realistic fallback weather for Indian location
               setWeatherData({
-                temp: 22,
-                condition: "Clear", 
+                temp: 28,
+                condition: "Clear",
                 description: "sunny",
-                high: 25,
-                low: 18,
+                high: 32,
+                low: 24,
                 icon: "01d"
               });
             }
@@ -78,12 +79,13 @@ const Home = () => {
           (error) => {
             console.error('Error getting location:', error);
             setCurrentLocation("Location unavailable");
+            // Use more realistic fallback weather for Indian location
             setWeatherData({
-              temp: 22,
+              temp: 28,
               condition: "Clear",
               description: "sunny", 
-              high: 25,
-              low: 18,
+              high: 32,
+              low: 24,
               icon: "01d"
             });
           }
@@ -109,26 +111,35 @@ const Home = () => {
         if (data && data.length > 0) {
           const destinations = data.map(trip => ({
             name: trip.end_location || trip.title || 'Recent Trip',
-            distance: trip.distance ? `${trip.distance.toFixed(1)} km` : '0 km',
-            rating: (4.5 + Math.random() * 0.4).toFixed(1) // Generate realistic rating
+            distance: trip.distance ? `${Number(trip.distance).toFixed(1)} km` : '0 km',
+            rating: (4.5 + Math.random() * 0.4).toFixed(1)
           }));
           setRecentDestinations(destinations);
         } else {
-          // Fallback recent destinations if no trips
-          setRecentDestinations([
-            { name: "Central Park", distance: "2.5 km", rating: "4.8" },
-            { name: "Brooklyn Bridge", distance: "5.1 km", rating: "4.9" },
-            { name: "Times Square", distance: "3.2 km", rating: "4.6" }
-          ]);
+          // Try to fetch from search history if no trips
+          const { data: searchData, error: searchError } = await supabase
+            .from('search_history')
+            .select('query, location_data')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(3);
+
+          if (searchData && searchData.length > 0) {
+            const searchDestinations = searchData.map(search => ({
+              name: search.query,
+              distance: "Recent search",
+              rating: "4.5"
+            }));
+            setRecentDestinations(searchDestinations);
+          } else {
+            // Show empty state message instead of fake data
+            setRecentDestinations([]);
+          }
         }
       } catch (error) {
         console.error('Error fetching recent destinations:', error);
-        // Use fallback data
-        setRecentDestinations([
-          { name: "Central Park", distance: "2.5 km", rating: "4.8" },
-          { name: "Brooklyn Bridge", distance: "5.1 km", rating: "4.9" },
-          { name: "Times Square", distance: "3.2 km", rating: "4.6" }
-        ]);
+        // Show empty state instead of fake data
+        setRecentDestinations([]);
       }
     };
 
@@ -239,27 +250,39 @@ const Home = () => {
           {/* Recent Destinations */}
           <section>
             <h2 className="text-lg font-semibold mb-4">Recent Destinations</h2>
-            <div className="space-y-3">
-              {recentDestinations.map((destination, index) => (
-                <Card key={index} className="cursor-pointer transition-smooth hover:shadow-elegant">
-                  <CardContent className="flex items-center justify-between p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-primary/10 rounded-full">
-                        <MapPin className="h-4 w-4 text-primary" />
+            {recentDestinations.length > 0 ? (
+              <div className="space-y-3">
+                {recentDestinations.map((destination, index) => (
+                  <Card key={index} className="cursor-pointer transition-smooth hover:shadow-elegant">
+                    <CardContent className="flex items-center justify-between p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-primary/10 rounded-full">
+                          <MapPin className="h-4 w-4 text-primary" />
+                        </div>
+                        <div>
+                          <h3 className="font-medium">{destination.name}</h3>
+                          <p className="text-sm text-muted-foreground">{destination.distance}</p>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="font-medium">{destination.name}</h3>
-                        <p className="text-sm text-muted-foreground">{destination.distance}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                      <span className="text-sm font-medium">{destination.rating}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                      {destination.rating !== "Recent search" && (
+                        <div className="flex items-center gap-1">
+                          <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                          <span className="text-sm font-medium">{destination.rating}</span>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <Card>
+                <CardContent className="text-center py-8">
+                  <MapPin className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
+                  <p className="text-muted-foreground mb-2">No recent destinations yet</p>
+                  <p className="text-sm text-muted-foreground/70">Start exploring to see your travel history here!</p>
+                </CardContent>
+              </Card>
+            )}
           </section>
 
           {/* Weather Widget */}
