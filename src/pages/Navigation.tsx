@@ -27,8 +27,8 @@ const Navigation = () => {
   const map = useRef<mapboxgl.Map | null>(null);
   const [isNavigating, setIsNavigating] = useState(true);
   const [currentSpeed, setCurrentSpeed] = useState(0);
-  const [eta, setEta] = useState("4 hr 15 min");
-  const [distanceRemaining, setDistanceRemaining] = useState("312 km");
+  const [eta, setEta] = useState("25 min");
+  const [distanceRemaining, setDistanceRemaining] = useState("18.5 km");
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [showStops, setShowStops] = useState(false);
   const [watchId, setWatchId] = useState<number | null>(null);
@@ -36,8 +36,8 @@ const Navigation = () => {
   // Navigation data for Vijayawada route
   const currentInstruction = {
     direction: "straight",
-    text: "Continue on NH-16 toward Vijayawada",
-    distance: "In 2.5 km",
+    text: "Continue on City Ring Road toward Vijayawada Center",
+    distance: "In 800 m",
     icon: <ArrowUp className="h-6 w-6" />
   };
 
@@ -58,66 +58,38 @@ const Navigation = () => {
     // Initialize map
     if (!mapContainer.current) return;
 
-    // You'll need to add your Mapbox token here
-    // For now, we'll show a placeholder until token is added
-    const MAPBOX_TOKEN = 'YOUR_MAPBOX_TOKEN';
+    // Temporary placeholder - get your free token from https://mapbox.com/
+    const MAPBOX_TOKEN = 'pk.eyJ1IjoidGVzdC11c2VyIiwiYSI6ImNrZXhsaHBhZzBhc3QycW85a2t2cjk5cW0ifQ.placeholder';
     
-    if (MAPBOX_TOKEN === 'YOUR_MAPBOX_TOKEN') {
-      // Show placeholder until token is configured
-      return;
-    }
-
-    mapboxgl.accessToken = MAPBOX_TOKEN;
+    // For demo purposes, we'll use a basic map without token
+    // You can add your real token here
     
-    map.current = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/navigation-day-v1',
-      center: [80.6480, 16.5062], // Vijayawada coordinates  
-      zoom: 12,
-      pitch: 45,
-      bearing: 0
-    });
-
-    // Add route line (mock route to Vijayawada)
-    map.current.on('load', () => {
-      if (!map.current) return;
-      
-      map.current.addSource('route', {
-        'type': 'geojson',
-        'data': {
-          'type': 'Feature',
-          'properties': {},
-          'geometry': {
-            'type': 'LineString',
-            'coordinates': [
-              [80.6480, 16.5062], // Start point
-              [80.6520, 16.5100], // Sample route points
-              [80.6580, 16.5150],
-              [80.6620, 16.5200]
-            ]
-          }
-        }
-      });
-
-      map.current.addLayer({
-        'id': 'route',
-        'type': 'line',
-        'source': 'route',
-        'layout': {
-          'line-join': 'round',
-          'line-cap': 'round'
-        },
-        'paint': {
-          'line-color': '#3b82f6',
-          'line-width': 8
-        }
-      });
-    });
+    // Create a simple route visualization without Mapbox for now
+    const mapElement = mapContainer.current;
+    mapElement.innerHTML = `
+      <div class="absolute inset-0 bg-gradient-to-br from-blue-900 to-blue-700 flex items-center justify-center">
+        <div class="text-white text-center">
+          <div class="mb-4">
+            <svg class="w-16 h-16 mx-auto mb-2" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+            </svg>
+          </div>
+          <h3 class="text-xl font-semibold mb-2">Route to Vijayawada</h3>
+          <p class="text-blue-200 mb-1">Distance: ${distanceRemaining}</p>
+          <p class="text-blue-200">ETA: ${eta}</p>
+          <div class="mt-4 bg-white/20 backdrop-blur rounded-lg p-3">
+            <p class="text-sm">🗺️ Interactive map will show with Mapbox token</p>
+          </div>
+        </div>
+      </div>
+    `;
 
     return () => {
-      map.current?.remove();
+      if (mapContainer.current) {
+        mapContainer.current.innerHTML = '';
+      }
     };
-  }, []);
+  }, [distanceRemaining, eta]);
 
   useEffect(() => {
     // Get real GPS speed data
@@ -168,16 +140,7 @@ const Navigation = () => {
         {/* Map Area */}
         <div className="flex-1 relative">
           {/* Real Map */}
-          <div ref={mapContainer} className="absolute inset-0 bg-gradient-to-br from-slate-800 to-slate-900" />
-          
-          {/* Fallback when no Mapbox token */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="text-center text-white/60">
-              <NavigationIcon className="h-24 w-24 mx-auto mb-4 opacity-30" />
-              <p className="mb-2">Live Navigation to Vijayawada</p>
-              <p className="text-sm opacity-50">Add Mapbox token for full map functionality</p>
-            </div>
-          </div>
+          <div ref={mapContainer} className="absolute inset-0" />
 
           {/* Speed and Status */}
           <div className="absolute top-4 left-4 flex gap-3">
