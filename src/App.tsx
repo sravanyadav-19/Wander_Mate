@@ -12,6 +12,7 @@ import Profile from "./pages/Profile";
 import Discover from "./pages/Discover";
 import TripPlanning from "./pages/TripPlanning";
 import RouteDetails from "./pages/RouteDetails";
+import Navigation from "./pages/Navigation";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -86,6 +87,11 @@ const AppRoutes = () => {
       <Route path="/route/:destination" element={
         <ProtectedRoute>
           <RouteDetails />
+        </ProtectedRoute>
+      } />
+      <Route path="/navigation/:routeId" element={
+        <ProtectedRoute>
+          <Navigation />
         </ProtectedRoute>
       } />
       <Route path="*" element={<NotFound />} />
