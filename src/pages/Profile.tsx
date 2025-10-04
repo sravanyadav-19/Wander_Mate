@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { AchievementBadge } from "@/components/gamification/AchievementBadge";
 import { UserStatistics } from "@/components/gamification/UserStatistics";
+import { EditProfileDialog } from "@/components/profile/EditProfileDialog";
 import { useAchievements } from "@/hooks/useAchievements";
 import { 
   User, 
@@ -27,26 +28,26 @@ const Profile = () => {
   const [profile, setProfile] = useState<any>(null);
   const { achievements, userStats, loading } = useAchievements();
 
-  useEffect(() => {
-    const fetchProfile = async () => {
-      if (!user) return;
-      
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .maybeSingle();
+  const fetchProfile = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle();
 
-        if (error) {
-          throw error;
-        }
-        setProfile(data);
-      } catch (error) {
-        console.error('Error fetching profile:', error);
+      if (error) {
+        throw error;
       }
-    };
+      setProfile(data);
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+    }
+  };
 
+  useEffect(() => {
     fetchProfile();
   }, [user]);
 
@@ -83,14 +84,7 @@ const Profile = () => {
               <p className="text-white/80 text-sm mb-2">
                 {user?.email}
               </p>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-white/80 hover:text-white hover:bg-white/10 p-0 h-auto"
-              >
-                <Edit className="h-3 w-3 mr-1" />
-                Edit Profile
-              </Button>
+              <EditProfileDialog profile={profile} onUpdate={fetchProfile} />
             </div>
           </div>
 

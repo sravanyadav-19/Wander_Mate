@@ -27,23 +27,24 @@ const Navigation = () => {
   const map = useRef<mapboxgl.Map | null>(null);
   const [isNavigating, setIsNavigating] = useState(true);
   const [currentSpeed, setCurrentSpeed] = useState(0);
-  const [eta, setEta] = useState("25 min");
-  const [distanceRemaining, setDistanceRemaining] = useState("18.5 km");
+  const [eta, setEta] = useState("Calculating...");
+  const [distanceRemaining, setDistanceRemaining] = useState("Calculating...");
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [showStops, setShowStops] = useState(false);
   const [watchId, setWatchId] = useState<number | null>(null);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [destination] = useState({ lat: 16.5062, lng: 80.6480 }); // Vijayawada coordinates
 
-  // Navigation data for Vijayawada route
-  const currentInstruction = {
+  const [currentInstruction, setCurrentInstruction] = useState({
     direction: "straight",
-    text: "Continue on City Ring Road toward Vijayawada Center",
-    distance: "In 800 m",
+    text: "Getting your location...",
+    distance: "Calculating...",
     icon: <ArrowUp className="h-6 w-6" />
-  };
+  });
 
   const nextInstruction = {
     direction: "right",
-    text: "Take exit toward Vijayawada City Center",
+    text: "Next instruction will appear soon",
     distance: "Then",
     icon: <ArrowRight className="h-5 w-5" />
   };
@@ -53,6 +54,31 @@ const Navigation = () => {
     { name: "Café Coffee Day", type: "Coffee", distance: "2.1 km", eta: "+8 min" },
     { name: "Reliance Fresh", type: "Food", distance: "3.5 km", eta: "+12 min" }
   ];
+
+  // Calculate distance between two coordinates using Haversine formula
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371; // Earth's radius in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  };
+
+  // Calculate ETA based on distance and average speed
+  const calculateETA = (distance: number, avgSpeed: number = 50) => {
+    const hours = distance / avgSpeed;
+    const minutes = Math.round(hours * 60);
+    if (minutes < 60) {
+      return `${minutes} min`;
+    }
+    const hrs = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hrs} hr ${mins} min`;
+  };
 
   useEffect(() => {
     // Initialize map
@@ -92,21 +118,52 @@ const Navigation = () => {
   }, [distanceRemaining, eta]);
 
   useEffect(() => {
-    // Get real GPS speed data
+    // Get real GPS location and speed data
     if (navigator.geolocation) {
       const id = navigator.geolocation.watchPosition(
         (position) => {
-          const speed = position.coords.speed;
+          const { latitude, longitude, speed } = position.coords;
+          
+          // Update user location
+          setUserLocation({ lat: latitude, lng: longitude });
+          
+          // Calculate distance to destination
+          const distance = calculateDistance(latitude, longitude, destination.lat, destination.lng);
+          setDistanceRemaining(`${distance.toFixed(1)} km`);
+          
+          // Calculate ETA
+          const currentSpeedKmh = speed ? Math.round(speed * 3.6) : 50;
+          setEta(calculateETA(distance, currentSpeedKmh));
+          
+          // Update navigation instruction based on distance
+          if (distance < 1) {
+            setCurrentInstruction({
+              direction: "straight",
+              text: "Approaching destination",
+              distance: `${Math.round(distance * 1000)} m`,
+              icon: <MapPin className="h-6 w-6" />
+            });
+          } else {
+            setCurrentInstruction({
+              direction: "straight",
+              text: "Continue toward destination",
+              distance: `${distance.toFixed(1)} km`,
+              icon: <ArrowUp className="h-6 w-6" />
+            });
+          }
+          
+          // Update speed
           if (speed !== null) {
-            // Convert m/s to km/h
             const speedKmh = Math.round(speed * 3.6);
-            setCurrentSpeed(speedKmh);
+            setCurrentSpeed(speedKmh > 0 ? speedKmh : 0);
           }
         },
         (error) => {
-          console.warn('Error getting GPS speed:', error);
-          // Fallback to simulated speed for demo
+          console.warn('Error getting GPS data:', error);
+          // Fallback to demo data
           setCurrentSpeed(Math.floor(Math.random() * 20) + 45);
+          setDistanceRemaining("18.5 km");
+          setEta("25 min");
         },
         {
           enableHighAccuracy: true,
@@ -122,7 +179,7 @@ const Navigation = () => {
         navigator.geolocation.clearWatch(watchId);
       }
     };
-  }, [watchId]);
+  }, [watchId, destination]);
 
   const endNavigation = () => {
     setIsNavigating(false);

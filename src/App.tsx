@@ -14,6 +14,8 @@ import TripPlanning from "./pages/TripPlanning";
 import RouteDetails from "./pages/RouteDetails";
 import Navigation from "./pages/Navigation";
 import TripComplete from "./pages/TripComplete";
+import Settings from "./pages/Settings";
+import PlaceDetails from "./pages/PlaceDetails";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -98,6 +100,16 @@ const AppRoutes = () => {
       <Route path="/trip-complete/:tripId" element={
         <ProtectedRoute>
           <TripComplete />
+        </ProtectedRoute>
+      } />
+      <Route path="/settings" element={
+        <ProtectedRoute>
+          <Settings />
+        </ProtectedRoute>
+      } />
+      <Route path="/place/:placeId" element={
+        <ProtectedRoute>
+          <PlaceDetails />
         </ProtectedRoute>
       } />
       <Route path="*" element={<NotFound />} />

@@ -27,6 +27,8 @@ const RouteDetails = () => {
   const [selectedRoute, setSelectedRoute] = useState(0);
   const [weatherData, setWeatherData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [pointsOfInterest, setPointsOfInterest] = useState([]);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
   // Mock route data
   const routes = [
@@ -71,32 +73,70 @@ const RouteDetails = () => {
     }
   ];
 
-  const pointsOfInterest = [
-    { name: "Brooklyn Bridge Park", type: "Park", distance: "0.5 km from route" },
-    { name: "DUMBO Coffee", type: "Coffee", distance: "0.2 km from route" },
-    { name: "Jane's Carousel", type: "Attraction", distance: "0.3 km from route" }
-  ];
 
   useEffect(() => {
-    const fetchWeatherData = async () => {
-      try {
-        const { data } = await supabase.functions.invoke('weather-route', {
-          body: { 
-            startLat: 40.7128, 
-            startLng: -74.0060,
-            endLat: 40.6892, 
-            endLng: -74.0445 
+    // Get user's current location
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const { latitude, longitude } = position.coords;
+          setUserLocation({ lat: latitude, lng: longitude });
+          
+          // Fetch weather data with real coordinates
+          try {
+            const { data } = await supabase.functions.invoke('weather-route', {
+              body: { 
+                startLat: latitude, 
+                startLng: longitude,
+                endLat: latitude + 0.05, 
+                endLng: longitude + 0.05 
+              }
+            });
+            setWeatherData(data);
+          } catch (error) {
+            console.error('Weather fetch error:', error);
           }
-        });
-        setWeatherData(data);
-      } catch (error) {
-        console.error('Weather fetch error:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchWeatherData();
+          
+          // Fetch nearby points of interest using user's location
+          try {
+            const response = await fetch(
+              `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+            );
+            const locationData = await response.json();
+            
+            // Generate POIs based on location
+            const pois = [
+              { name: `Local Park near ${locationData.locality || 'here'}`, type: "Park", distance: "0.5 km from route" },
+              { name: `Coffee Shop in ${locationData.locality || 'area'}`, type: "Coffee", distance: "0.2 km from route" },
+              { name: `${locationData.locality || 'Local'} Attraction`, type: "Attraction", distance: "0.3 km from route" }
+            ];
+            setPointsOfInterest(pois);
+          } catch (error) {
+            console.error('Error fetching POIs:', error);
+            // Fallback POIs
+            setPointsOfInterest([
+              { name: "Nearby Park", type: "Park", distance: "0.5 km from route" },
+              { name: "Local Coffee", type: "Coffee", distance: "0.2 km from route" },
+              { name: "Local Attraction", type: "Attraction", distance: "0.3 km from route" }
+            ]);
+          }
+          
+          setIsLoading(false);
+        },
+        (error) => {
+          console.error('Location error:', error);
+          // Fallback data
+          setPointsOfInterest([
+            { name: "Nearby Park", type: "Park", distance: "0.5 km from route" },
+            { name: "Local Coffee", type: "Coffee", distance: "0.2 km from route" },
+            { name: "Local Attraction", type: "Attraction", distance: "0.3 km from route" }
+          ]);
+          setIsLoading(false);
+        }
+      );
+    } else {
+      setIsLoading(false);
+    }
   }, []);
 
   const startNavigation = () => {
