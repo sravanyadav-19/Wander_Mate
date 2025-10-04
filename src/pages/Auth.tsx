@@ -6,12 +6,16 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
-import { MapPin, Compass } from "lucide-react";
+import { MapPin, Compass, AlertCircle } from "lucide-react";
+import { loginSchema, signupSchema, type LoginFormData, type SignupFormData } from "@/lib/validations";
+import { toast } from "sonner";
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
   const [signupForm, setSignupForm] = useState({ email: "", password: "", fullName: "" });
+  const [loginErrors, setLoginErrors] = useState<Partial<LoginFormData>>({});
+  const [signupErrors, setSignupErrors] = useState<Partial<SignupFormData>>({});
   const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
 
@@ -23,6 +27,21 @@ const Auth = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoginErrors({});
+    
+    // Validate form data
+    const validation = loginSchema.safeParse(loginForm);
+    
+    if (!validation.success) {
+      const errors = validation.error.flatten().fieldErrors;
+      setLoginErrors({
+        email: errors.email?.[0],
+        password: errors.password?.[0],
+      });
+      toast.error("Please fix the errors in the form");
+      return;
+    }
+    
     setIsLoading(true);
     
     const { error } = await signIn(loginForm.email, loginForm.password);
@@ -36,6 +55,22 @@ const Auth = () => {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSignupErrors({});
+    
+    // Validate form data
+    const validation = signupSchema.safeParse(signupForm);
+    
+    if (!validation.success) {
+      const errors = validation.error.flatten().fieldErrors;
+      setSignupErrors({
+        email: errors.email?.[0],
+        password: errors.password?.[0],
+        fullName: errors.fullName?.[0],
+      });
+      toast.error("Please fix the errors in the form");
+      return;
+    }
+    
     setIsLoading(true);
     
     const { error } = await signUp(signupForm.email, signupForm.password, signupForm.fullName);
@@ -81,9 +116,18 @@ const Auth = () => {
                       type="email"
                       placeholder="Enter your email"
                       value={loginForm.email}
-                      onChange={(e) => setLoginForm({...loginForm, email: e.target.value})}
-                      required
+                      onChange={(e) => {
+                        setLoginForm({...loginForm, email: e.target.value});
+                        setLoginErrors({...loginErrors, email: undefined});
+                      }}
+                      className={loginErrors.email ? "border-destructive" : ""}
                     />
+                    {loginErrors.email && (
+                      <p className="text-sm text-destructive flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {loginErrors.email}
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="login-password">Password</Label>
@@ -92,9 +136,18 @@ const Auth = () => {
                       type="password"
                       placeholder="Enter your password"
                       value={loginForm.password}
-                      onChange={(e) => setLoginForm({...loginForm, password: e.target.value})}
-                      required
+                      onChange={(e) => {
+                        setLoginForm({...loginForm, password: e.target.value});
+                        setLoginErrors({...loginErrors, password: undefined});
+                      }}
+                      className={loginErrors.password ? "border-destructive" : ""}
                     />
+                    {loginErrors.password && (
+                      <p className="text-sm text-destructive flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {loginErrors.password}
+                      </p>
+                    )}
                   </div>
                   <Button 
                     type="submit" 
@@ -115,8 +168,18 @@ const Auth = () => {
                       type="text"
                       placeholder="Enter your full name"
                       value={signupForm.fullName}
-                      onChange={(e) => setSignupForm({...signupForm, fullName: e.target.value})}
+                      onChange={(e) => {
+                        setSignupForm({...signupForm, fullName: e.target.value});
+                        setSignupErrors({...signupErrors, fullName: undefined});
+                      }}
+                      className={signupErrors.fullName ? "border-destructive" : ""}
                     />
+                    {signupErrors.fullName && (
+                      <p className="text-sm text-destructive flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {signupErrors.fullName}
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="signup-email">Email</Label>
@@ -125,20 +188,38 @@ const Auth = () => {
                       type="email"
                       placeholder="Enter your email"
                       value={signupForm.email}
-                      onChange={(e) => setSignupForm({...signupForm, email: e.target.value})}
-                      required
+                      onChange={(e) => {
+                        setSignupForm({...signupForm, email: e.target.value});
+                        setSignupErrors({...signupErrors, email: undefined});
+                      }}
+                      className={signupErrors.email ? "border-destructive" : ""}
                     />
+                    {signupErrors.email && (
+                      <p className="text-sm text-destructive flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {signupErrors.email}
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="signup-password">Password</Label>
                     <Input
                       id="signup-password"
                       type="password"
-                      placeholder="Create a password"
+                      placeholder="Create a strong password (8+ chars, upper, lower, number)"
                       value={signupForm.password}
-                      onChange={(e) => setSignupForm({...signupForm, password: e.target.value})}
-                      required
+                      onChange={(e) => {
+                        setSignupForm({...signupForm, password: e.target.value});
+                        setSignupErrors({...signupErrors, password: undefined});
+                      }}
+                      className={signupErrors.password ? "border-destructive" : ""}
                     />
+                    {signupErrors.password && (
+                      <p className="text-sm text-destructive flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {signupErrors.password}
+                      </p>
+                    )}
                   </div>
                   <Button 
                     type="submit" 
