@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Search as SearchIcon, MapPin, Star, Navigation, Clock } from "lucide-react";
+import { geocodeAddress } from "@/utils/geocoding";
+import { toast } from "sonner";
 
 const Search = () => {
   const navigate = useNavigate();
@@ -245,9 +247,23 @@ const Search = () => {
                           <Button 
                             size="sm" 
                             className="ml-2"
-                            onClick={(e) => {
+                            onClick={async (e) => {
                               e.stopPropagation();
-                              navigate(`/route/${encodeURIComponent(result.name)}`);
+                              toast.loading("Getting location coordinates...");
+                              const coords = await geocodeAddress(result.address);
+                              toast.dismiss();
+                              
+                              if (coords) {
+                                navigate(`/route/${encodeURIComponent(result.name)}`, {
+                                  state: { 
+                                    destinationName: result.name,
+                                    destinationCoords: coords,
+                                    destinationAddress: result.address
+                                  }
+                                });
+                              } else {
+                                toast.error("Could not find location coordinates");
+                              }
                             }}
                           >
                             Get Directions

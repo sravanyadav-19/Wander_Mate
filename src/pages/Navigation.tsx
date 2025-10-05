@@ -35,11 +35,10 @@ const Navigation = () => {
   const [watchId, setWatchId] = useState<number | null>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   
-  // Get destination from navigation state or fallback to Vijayawada
-  const destinationName = location.state?.destination || "Vijayawada";
-  const [destination] = useState(
-    location.state?.destinationCoords || { lat: 16.5062, lng: 80.6480 }
-  );
+  // Get destination from navigation state
+  const destinationName = location.state?.destinationName || "destination";
+  const destinationCoords = location.state?.destinationCoords;
+  const [destination] = useState<{ lat: number; lng: number } | null>(destinationCoords);
 
   const [currentInstruction, setCurrentInstruction] = useState({
     direction: "straight",
@@ -125,6 +124,16 @@ const Navigation = () => {
 
   useEffect(() => {
     // Get real GPS location and speed data
+    if (!destination) {
+      setCurrentInstruction({
+        direction: "straight",
+        text: "No destination set",
+        distance: "N/A",
+        icon: <MapPin className="h-6 w-6" />
+      });
+      return;
+    }
+
     if (navigator.geolocation) {
       const id = navigator.geolocation.watchPosition(
         (position) => {

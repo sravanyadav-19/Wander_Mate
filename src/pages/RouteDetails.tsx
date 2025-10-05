@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -24,11 +24,16 @@ import {
 const RouteDetails = () => {
   const { destination } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [selectedRoute, setSelectedRoute] = useState(0);
   const [weatherData, setWeatherData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [pointsOfInterest, setPointsOfInterest] = useState([]);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  
+  // Get destination info from navigation state
+  const destinationCoords = location.state?.destinationCoords;
+  const destinationAddress = location.state?.destinationAddress;
 
   // Mock route data
   const routes = [
@@ -140,14 +145,11 @@ const RouteDetails = () => {
   }, []);
 
   const startNavigation = () => {
-    // Pass destination info to navigation page
     navigate(`/navigation/${routes[selectedRoute].id}`, {
       state: {
-        destination: destination,
-        destinationCoords: userLocation ? {
-          lat: userLocation.lat + 0.05, // Offset for demo - in production, get actual destination coords
-          lng: userLocation.lng + 0.05
-        } : null
+        destinationName: destination,
+        destinationCoords: destinationCoords,
+        destinationAddress: destinationAddress
       }
     });
   };
