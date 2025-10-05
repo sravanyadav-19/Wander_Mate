@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -23,6 +23,7 @@ import {
 const Navigation = () => {
   const { routeId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const [isNavigating, setIsNavigating] = useState(true);
@@ -33,7 +34,12 @@ const Navigation = () => {
   const [showStops, setShowStops] = useState(false);
   const [watchId, setWatchId] = useState<number | null>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const [destination] = useState({ lat: 16.5062, lng: 80.6480 }); // Vijayawada coordinates
+  
+  // Get destination from navigation state or fallback to Vijayawada
+  const destinationName = location.state?.destination || "Vijayawada";
+  const [destination] = useState(
+    location.state?.destinationCoords || { lat: 16.5062, lng: 80.6480 }
+  );
 
   const [currentInstruction, setCurrentInstruction] = useState({
     direction: "straight",
@@ -100,7 +106,7 @@ const Navigation = () => {
               <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
             </svg>
           </div>
-          <h3 class="text-xl font-semibold mb-2">Route to Vijayawada</h3>
+          <h3 class="text-xl font-semibold mb-2">Route to ${destinationName}</h3>
           <p class="text-blue-200 mb-1">Distance: ${distanceRemaining}</p>
           <p class="text-blue-200">ETA: ${eta}</p>
           <div class="mt-4 bg-white/20 backdrop-blur rounded-lg p-3">

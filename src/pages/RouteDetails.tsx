@@ -140,7 +140,16 @@ const RouteDetails = () => {
   }, []);
 
   const startNavigation = () => {
-    navigate(`/navigation/${routes[selectedRoute].id}`);
+    // Pass destination info to navigation page
+    navigate(`/navigation/${routes[selectedRoute].id}`, {
+      state: {
+        destination: destination,
+        destinationCoords: userLocation ? {
+          lat: userLocation.lat + 0.05, // Offset for demo - in production, get actual destination coords
+          lng: userLocation.lng + 0.05
+        } : null
+      }
+    });
   };
 
   const getWeatherIcon = (condition: string) => {
