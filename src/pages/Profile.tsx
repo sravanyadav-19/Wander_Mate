@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -24,6 +25,7 @@ import {
 } from "lucide-react";
 
 const Profile = () => {
+  const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const [profile, setProfile] = useState<any>(null);
   const { achievements, userStats, loading } = useAchievements();
@@ -246,7 +248,7 @@ const Profile = () => {
             <Button 
               variant="outline" 
               className="w-full justify-start"
-              onClick={() => window.location.href = "/settings"}
+              onClick={() => navigate("/settings")}
             >
               <Settings className="h-4 w-4 mr-2" />
               Settings & Preferences

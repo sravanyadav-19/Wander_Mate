@@ -42,61 +42,8 @@ const Discover = () => {
     { id: "parks", label: "Parks", icon: Trees }
   ];
 
-  // Initialize with mock places and get current location
+  // Get current location and generate location-based places
   useEffect(() => {
-    const mockPlaces = [
-      {
-        id: 1,
-        name: "The High Line",
-        category: "attractions",
-        description: "Elevated park built on former railway tracks",
-        rating: 4.8,
-        distance: "1.2 km",
-        estimatedTime: "15 min",
-        image: "🌿",
-        tags: ["Park", "Walking", "Views"],
-        isOpen: true
-      },
-      {
-        id: 2,
-        name: "Joe Coffee",
-        category: "coffee",
-        description: "Local favorite for artisanal coffee and pastries",
-        rating: 4.6,
-        distance: "0.8 km",
-        estimatedTime: "10 min",
-        image: "☕",
-        tags: ["Coffee", "WiFi", "Quiet"],
-        isOpen: true
-      },
-      {
-        id: 3,
-        name: "Chelsea Market",
-        category: "shopping",
-        description: "Indoor food hall and shopping destination",
-        rating: 4.7,
-        distance: "2.1 km",
-        estimatedTime: "25 min",
-        image: "🏪",
-        tags: ["Food", "Shopping", "Indoor"],
-        isOpen: true
-      },
-      {
-        id: 4,
-        name: "Brooklyn Bridge Park",
-        category: "parks",
-        description: "Waterfront park with stunning city views",
-        rating: 4.9,
-        distance: "3.5 km",
-        estimatedTime: "35 min",
-        image: "🌉",
-        tags: ["Park", "Views", "Outdoor"],
-        isOpen: true
-      }
-    ];
-    setPlaces(mockPlaces);
-    
-    // Get current location
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         async (position) => {
@@ -109,24 +56,79 @@ const Discover = () => {
             const locationName = data.city && data.countryCode 
               ? `${data.city}, ${data.countryCode}` 
               : "Current Location";
+            const cityName = data.city || data.locality || "your area";
             setCurrentLocation(locationName);
+            
+            // Generate location-specific places
+            const locationPlaces = [
+              {
+                id: 1,
+                name: `${cityName} Park`,
+                category: "parks",
+                description: `Beautiful green space in ${cityName}`,
+                rating: 4.5,
+                distance: "1.2 km",
+                estimatedTime: "15 min",
+                image: "🌿",
+                tags: ["Park", "Walking", "Nature"],
+                isOpen: true
+              },
+              {
+                id: 2,
+                name: `Local Coffee Shop`,
+                category: "coffee",
+                description: `Popular coffee spot in ${cityName}`,
+                rating: 4.6,
+                distance: "0.8 km",
+                estimatedTime: "10 min",
+                image: "☕",
+                tags: ["Coffee", "WiFi", "Cozy"],
+                isOpen: true
+              },
+              {
+                id: 3,
+                name: `${cityName} Market`,
+                category: "shopping",
+                description: `Local shopping and food destination`,
+                rating: 4.4,
+                distance: "2.1 km",
+                estimatedTime: "25 min",
+                image: "🏪",
+                tags: ["Food", "Shopping", "Local"],
+                isOpen: true
+              },
+              {
+                id: 4,
+                name: `${cityName} Landmark`,
+                category: "attractions",
+                description: `Must-see attraction in ${cityName}`,
+                rating: 4.7,
+                distance: "3.5 km",
+                estimatedTime: "35 min",
+                image: "🏛️",
+                tags: ["Landmark", "History", "Photos"],
+                isOpen: true
+              }
+            ];
+            setPlaces(locationPlaces);
             
             // Fetch AI recommendations with real location
             fetchAIRecommendations(locationName);
           } catch (error) {
             console.error('Error getting location:', error);
             setCurrentLocation("Unknown Location");
-            fetchAIRecommendations("New York City");
+            setPlaces([]);
           }
         },
         (error) => {
           console.error('Error getting location:', error);
           setCurrentLocation("Location unavailable");
-          fetchAIRecommendations("New York City");
+          setPlaces([]);
         }
       );
     } else {
-      fetchAIRecommendations("New York City");
+      setCurrentLocation("Location not supported");
+      setPlaces([]);
     }
   }, []);
 

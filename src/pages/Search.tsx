@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,16 +7,17 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Search as SearchIcon, MapPin, Star, Navigation, Clock } from "lucide-react";
 
 const Search = () => {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [query, setQuery] = useState(searchParams.get("q") || "");
   const [isSearching, setIsSearching] = useState(false);
 
-  const recentSearches = [
-    "Central Park",
-    "Brooklyn Bridge",
-    "Times Square",
-    "Statue of Liberty"
-  ];
+  const [recentSearches, setRecentSearches] = useState<string[]>([
+    "Popular destinations",
+    "Nearby attractions",
+    "Local restaurants",
+    "Parks and gardens"
+  ]);
 
   // Generate search results based on the query
   const getSearchResults = (searchQuery: string) => {
@@ -167,7 +168,10 @@ const Search = () => {
                   <Card 
                     key={index} 
                     className="cursor-pointer transition-smooth hover:shadow-elegant"
-                    onClick={() => setQuery(search)}
+                    onClick={() => {
+                      setQuery(search);
+                      handleSearch(new Event('submit') as any);
+                    }}
                   >
                     <CardContent className="flex items-center gap-3 p-4">
                       <Clock className="h-4 w-4 text-muted-foreground" />
@@ -238,7 +242,14 @@ const Search = () => {
                             </span>
                           </div>
                           
-                          <Button size="sm" className="ml-2">
+                          <Button 
+                            size="sm" 
+                            className="ml-2"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/route/${encodeURIComponent(result.name)}`);
+                            }}
+                          >
                             Get Directions
                           </Button>
                         </div>

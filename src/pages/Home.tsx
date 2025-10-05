@@ -108,14 +108,14 @@ const Home = () => {
 
         if (error) throw error;
         
-        if (data && data.length > 0) {
-          const destinations = data.map(trip => ({
-            name: trip.end_location || trip.title || 'Recent Trip',
-            distance: trip.distance ? `${Number(trip.distance).toFixed(1)} km` : '0 km',
-            rating: (4.5 + Math.random() * 0.4).toFixed(1)
-          }));
-          setRecentDestinations(destinations);
-        } else {
+          if (data && data.length > 0) {
+            const destinations = data.map(trip => ({
+              name: trip.end_location || trip.title || 'Recent Trip',
+              distance: trip.distance ? `${Number(trip.distance).toFixed(1)} km` : '0 km',
+              rating: "4.5"
+            }));
+            setRecentDestinations(destinations);
+          } else {
           // Try to fetch from search history if no trips
           const { data: searchData, error: searchError } = await supabase
             .from('search_history')
