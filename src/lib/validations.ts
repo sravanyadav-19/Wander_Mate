@@ -31,9 +31,7 @@ export const signupSchema = z.object({
     .string()
     .trim()
     .min(2, { message: "Name must be at least 2 characters" })
-    .max(100, { message: "Name must be less than 100 characters" })
-    .optional()
-    .or(z.literal("")),
+    .max(100, { message: "Name must be less than 100 characters" }),
 });
 
 export type LoginFormData = z.infer<typeof loginSchema>;
