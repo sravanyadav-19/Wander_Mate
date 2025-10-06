@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { AppLayout } from "@/components/layout/AppLayout";
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import { supabase } from '@/integrations/supabase/client';
 import { 
   Navigation as NavigationIcon,
   ArrowUp,
@@ -34,11 +35,12 @@ const Navigation = () => {
   const [showStops, setShowStops] = useState(false);
   const [watchId, setWatchId] = useState<number | null>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [mapToken, setMapToken] = useState<string | null>(null);
   
-  // Get destination from navigation state
-  const destinationName = location.state?.destinationName || "destination";
-  const destinationCoords = location.state?.destinationCoords;
-  const destination = destinationCoords || null;
+  // Get destination from navigation state or session storage fallback
+  const navState = (location.state as any) || (typeof window !== 'undefined' ? JSON.parse(sessionStorage.getItem('nav_destination') || 'null') : null);
+  const destinationName = navState?.destinationName || "destination";
+  const destination = (navState?.destinationCoords as { lat: number; lng: number } | null) || null;
 
   const [currentInstruction, setCurrentInstruction] = useState({
     direction: "straight",
@@ -89,10 +91,31 @@ const Navigation = () => {
     // Initialize map
     if (!mapContainer.current) return;
 
-    // Initialize Mapbox map with user and destination locations
+    // Ensure we have a Mapbox token; fetch from Supabase Edge Function if not yet loaded
+    if (!mapToken) {
+      (async () => {
+        try {
+          const { data } = await supabase.functions.invoke('mapbox-token');
+          if (data?.token) setMapToken(data.token);
+        } catch (e) {
+          console.warn('Mapbox token fetch failed', e);
+        }
+      })();
+
+      // Show helpful placeholder until token arrives
+      mapContainer.current.innerHTML = `
+        <div class="absolute inset-0 bg-gradient-to-br from-blue-900 to-blue-700 flex items-center justify-center">
+          <div class="text-white text-center p-4">
+            <h3 class="text-xl font-semibold mb-2">Add your Mapbox token</h3>
+            <p class="text-blue-200">Set MAPBOX_PUBLIC_TOKEN in Supabase Edge Function secrets.</p>
+          </div>
+        </div>
+      `;
+      return;
+    }
     if (userLocation && destination) {
       try {
-        mapboxgl.accessToken = 'pk.eyJ1IjoidGVzdC11c2VyIiwiYSI6ImNrZXhsaHBhZzBhc3QycW85a2t2cjk5cW0ifQ.placeholder';
+        mapboxgl.accessToken = mapToken as string;
         
         // Calculate center point between user and destination
         const centerLat = (userLocation.lat + destination.lat) / 2;
@@ -169,7 +192,12 @@ const Navigation = () => {
   useEffect(() => {
     // Get real GPS location and speed data
     if (!destination) {
-      console.log('No destination coordinates available');
+      setCurrentInstruction({
+        direction: "straight",
+        text: "No destination set",
+        distance: "N/A",
+        icon: <MapPin className="h-6 w-6" />
+      });
       return;
     }
 
@@ -237,6 +265,7 @@ const Navigation = () => {
 
   const endNavigation = () => {
     setIsNavigating(false);
+    sessionStorage.removeItem('nav_destination');
     navigate(`/trip-complete/${routeId}`);
   };
 

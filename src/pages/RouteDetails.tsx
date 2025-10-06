@@ -20,6 +20,8 @@ import {
   Sun,
   CloudRain
 } from "lucide-react";
+import { geocodeAddress } from "@/utils/geocoding";
+import { toast } from "sonner";
 
 const RouteDetails = () => {
   const { destination } = useParams();
@@ -144,11 +146,34 @@ const RouteDetails = () => {
     }
   }, []);
 
-  const startNavigation = () => {
+  const startNavigation = async () => {
+    // Ensure we have destination coordinates; fallback to geocoding by name
+    let coords = destinationCoords as { lat: number; lng: number } | null;
+    if (!coords && destination) {
+      toast.loading("Finding destination coordinates...");
+      coords = await geocodeAddress(destination);
+      toast.dismiss();
+    }
+
+    if (!coords) {
+      toast.error("Could not determine destination location.");
+      return;
+    }
+
+    // Persist destination for refresh/back navigation
+    sessionStorage.setItem(
+      'nav_destination',
+      JSON.stringify({
+        destinationName: destination,
+        destinationCoords: coords,
+        destinationAddress: destinationAddress
+      })
+    );
+
     navigate(`/navigation/${routes[selectedRoute].id}`, {
       state: {
         destinationName: destination,
-        destinationCoords: destinationCoords,
+        destinationCoords: coords,
         destinationAddress: destinationAddress
       }
     });
