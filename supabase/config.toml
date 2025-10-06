@@ -1,1 +1,13 @@
 project_id = "tvckxsiniardtmlyaoeq"
+
+[functions.mapbox-token]
+verify_jwt = false
+
+[functions.ai-recommendations]
+verify_jwt = false
+
+[functions.current-weather]
+verify_jwt = false
+
+[functions.weather-route]
+verify_jwt = false
