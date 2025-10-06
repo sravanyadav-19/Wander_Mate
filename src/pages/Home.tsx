@@ -14,10 +14,29 @@ const Home = () => {
   const [currentCoords, setCurrentCoords] = useState<{lat: number, lng: number} | null>(null);
   const [weatherData, setWeatherData] = useState<any>(null);
   const [recentDestinations, setRecentDestinations] = useState<any[]>([]);
+  const [userProfile, setUserProfile] = useState<any>(null);
   const { user } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (!user) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+        
+        if (data && !error) {
+          setUserProfile(data);
+        }
+      } catch (error) {
+        console.error('Error fetching profile:', error);
+      }
+    };
+
     const getLocationAndWeather = () => {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
@@ -143,6 +162,7 @@ const Home = () => {
       }
     };
 
+    fetchUserProfile();
     getLocationAndWeather();
     fetchRecentDestinations();
   }, [user]);
@@ -197,10 +217,10 @@ const Home = () => {
         {/* Header */}
         <header className="gradient-hero text-white px-4 py-6 pb-8">
           <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-2xl font-bold">Welcome back{user?.user_metadata?.full_name ? `, ${user.user_metadata.full_name.split(' ')[0]}` : ''}!</h1>
-              <p className="text-white/80">Where will you wander today?</p>
-            </div>
+          <div>
+            <h1 className="text-2xl font-bold">Welcome back{userProfile?.full_name ? `, ${userProfile.full_name.split(' ')[0]}` : ''}!</h1>
+            <p className="text-white/80">Where will you wander today?</p>
+          </div>
             <div className="flex items-center gap-2">
               <MapPin className="h-5 w-5" />
               <span className="text-sm">{currentLocation}</span>

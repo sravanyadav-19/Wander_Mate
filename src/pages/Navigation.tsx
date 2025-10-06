@@ -38,7 +38,7 @@ const Navigation = () => {
   // Get destination from navigation state
   const destinationName = location.state?.destinationName || "destination";
   const destinationCoords = location.state?.destinationCoords;
-  const [destination] = useState<{ lat: number; lng: number } | null>(destinationCoords);
+  const destination = destinationCoords || null;
 
   const [currentInstruction, setCurrentInstruction] = useState({
     direction: "straight",
@@ -89,48 +89,87 @@ const Navigation = () => {
     // Initialize map
     if (!mapContainer.current) return;
 
-    // Temporary placeholder - get your free token from https://mapbox.com/
-    const MAPBOX_TOKEN = 'pk.eyJ1IjoidGVzdC11c2VyIiwiYSI6ImNrZXhsaHBhZzBhc3QycW85a2t2cjk5cW0ifQ.placeholder';
-    
-    // For demo purposes, we'll use a basic map without token
-    // You can add your real token here
-    
-    // Create a simple route visualization without Mapbox for now
-    const mapElement = mapContainer.current;
-    mapElement.innerHTML = `
-      <div class="absolute inset-0 bg-gradient-to-br from-blue-900 to-blue-700 flex items-center justify-center">
-        <div class="text-white text-center">
-          <div class="mb-4">
-            <svg class="w-16 h-16 mx-auto mb-2" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-            </svg>
+    // Initialize Mapbox map with user and destination locations
+    if (userLocation && destination) {
+      try {
+        mapboxgl.accessToken = 'pk.eyJ1IjoidGVzdC11c2VyIiwiYSI6ImNrZXhsaHBhZzBhc3QycW85a2t2cjk5cW0ifQ.placeholder';
+        
+        // Calculate center point between user and destination
+        const centerLat = (userLocation.lat + destination.lat) / 2;
+        const centerLng = (userLocation.lng + destination.lng) / 2;
+        
+        map.current = new mapboxgl.Map({
+          container: mapContainer.current,
+          style: 'mapbox://styles/mapbox/streets-v12',
+          center: [centerLng, centerLat],
+          zoom: 12
+        });
+
+        // Add user location marker
+        new mapboxgl.Marker({ color: '#3b82f6' })
+          .setLngLat([userLocation.lng, userLocation.lat])
+          .addTo(map.current);
+
+        // Add destination marker
+        new mapboxgl.Marker({ color: '#ef4444' })
+          .setLngLat([destination.lng, destination.lat])
+          .addTo(map.current);
+
+        // Add navigation controls
+        map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+      } catch (error) {
+        console.error('Error initializing map:', error);
+        // Show fallback UI
+        if (mapContainer.current) {
+          mapContainer.current.innerHTML = `
+            <div class="absolute inset-0 bg-gradient-to-br from-blue-900 to-blue-700 flex items-center justify-center">
+              <div class="text-white text-center p-4">
+                <div class="mb-4">
+                  <svg class="w-16 h-16 mx-auto mb-2" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                  </svg>
+                </div>
+                <h3 class="text-xl font-semibold mb-2">Navigating to ${destinationName}</h3>
+                <p class="text-blue-200 mb-1">Distance: ${distanceRemaining}</p>
+                <p class="text-blue-200">ETA: ${eta}</p>
+                <div class="mt-4 bg-white/20 backdrop-blur rounded-lg p-3">
+                  <p class="text-sm">📍 Add Mapbox token in Settings for interactive map</p>
+                </div>
+              </div>
+            </div>
+          `;
+        }
+      }
+    } else {
+      // Show loading state
+      if (mapContainer.current) {
+        mapContainer.current.innerHTML = `
+          <div class="absolute inset-0 bg-gradient-to-br from-blue-900 to-blue-700 flex items-center justify-center">
+            <div class="text-white text-center">
+              <div class="animate-pulse mb-4">
+                <svg class="w-16 h-16 mx-auto mb-2" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                </svg>
+              </div>
+              <h3 class="text-xl font-semibold mb-2">Getting your location...</h3>
+              <p class="text-blue-200">Please wait while we calculate your route</p>
+            </div>
           </div>
-          <h3 class="text-xl font-semibold mb-2">Route to ${destinationName}</h3>
-          <p class="text-blue-200 mb-1">Distance: ${distanceRemaining}</p>
-          <p class="text-blue-200">ETA: ${eta}</p>
-          <div class="mt-4 bg-white/20 backdrop-blur rounded-lg p-3">
-            <p class="text-sm">🗺️ Interactive map will show with Mapbox token</p>
-          </div>
-        </div>
-      </div>
-    `;
+        `;
+      }
+    }
 
     return () => {
-      if (mapContainer.current) {
-        mapContainer.current.innerHTML = '';
+      if (map.current) {
+        map.current.remove();
       }
     };
-  }, [distanceRemaining, eta]);
+  }, [userLocation, destination, destinationName, distanceRemaining, eta]);
 
   useEffect(() => {
     // Get real GPS location and speed data
     if (!destination) {
-      setCurrentInstruction({
-        direction: "straight",
-        text: "No destination set",
-        distance: "N/A",
-        icon: <MapPin className="h-6 w-6" />
-      });
+      console.log('No destination coordinates available');
       return;
     }
 
