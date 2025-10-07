@@ -36,6 +36,9 @@ const Navigation = () => {
   const [watchId, setWatchId] = useState<number | null>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [mapToken, setMapToken] = useState<string | null>(null);
+  const [routes, setRoutes] = useState<any[]>([]);
+  const [selectedRoute, setSelectedRoute] = useState(0);
+  const [showRouteOptions, setShowRouteOptions] = useState(false);
   
   // Get destination from navigation state or session storage fallback
   const navState = (location.state as any) || (typeof window !== 'undefined' ? JSON.parse(sessionStorage.getItem('nav_destination') || 'null') : null);
@@ -87,6 +90,43 @@ const Navigation = () => {
     return `${hrs} hr ${mins} min`;
   };
 
+  // Fetch routes from Mapbox Directions API
+  const fetchRoutes = async (startLng: number, startLat: number, endLng: number, endLat: number, token: string) => {
+    try {
+      const profiles = [
+        { name: 'traffic', profile: 'driving-traffic', color: '#3b82f6', label: 'Dynamic (Traffic)' },
+        { name: 'shortest', profile: 'driving', color: '#10b981', label: 'Shortest Path' },
+        { name: 'highway', profile: 'driving', color: '#f59e0b', label: 'Highway Route' }
+      ];
+
+      const routePromises = profiles.map(async (p) => {
+        const url = `https://api.mapbox.com/directions/v5/mapbox/${p.profile}/${startLng},${startLat};${endLng},${endLat}?alternatives=true&geometries=geojson&steps=true&access_token=${token}`;
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data.routes && data.routes.length > 0) {
+          const route = data.routes[0];
+          return {
+            ...p,
+            geometry: route.geometry,
+            duration: route.duration,
+            distance: route.distance,
+            steps: route.legs[0]?.steps || []
+          };
+        }
+        return null;
+      });
+
+      const fetchedRoutes = await Promise.all(routePromises);
+      const validRoutes = fetchedRoutes.filter(r => r !== null);
+      setRoutes(validRoutes);
+      return validRoutes;
+    } catch (error) {
+      console.error('Error fetching routes:', error);
+      return [];
+    }
+  };
+
   useEffect(() => {
     // Initialize map
     if (!mapContainer.current) return;
@@ -126,6 +166,59 @@ const Navigation = () => {
           style: 'mapbox://styles/mapbox/streets-v12',
           center: [centerLng, centerLat],
           zoom: 12
+        });
+
+        map.current.on('load', async () => {
+          if (!map.current || !userLocation || !destination) return;
+
+          // Fetch all route options
+          const fetchedRoutes = await fetchRoutes(
+            userLocation.lng,
+            userLocation.lat,
+            destination.lng,
+            destination.lat,
+            mapToken!
+          );
+
+          // Add route layers to the map
+          fetchedRoutes.forEach((route, index) => {
+            if (!map.current) return;
+            
+            const layerId = `route-${index}`;
+            const sourceId = `route-source-${index}`;
+
+            map.current.addSource(sourceId, {
+              type: 'geojson',
+              data: {
+                type: 'Feature',
+                properties: {},
+                geometry: route.geometry
+              }
+            });
+
+            map.current.addLayer({
+              id: layerId,
+              type: 'line',
+              source: sourceId,
+              layout: {
+                'line-join': 'round',
+                'line-cap': 'round'
+              },
+              paint: {
+                'line-color': route.color,
+                'line-width': index === selectedRoute ? 6 : 4,
+                'line-opacity': index === selectedRoute ? 1 : 0.5
+              }
+            });
+          });
+
+          // Fit map to show all routes
+          if (fetchedRoutes.length > 0) {
+            const bounds = new mapboxgl.LngLatBounds();
+            bounds.extend([userLocation.lng, userLocation.lat]);
+            bounds.extend([destination.lng, destination.lat]);
+            map.current.fitBounds(bounds, { padding: 80 });
+          }
         });
 
         // Add user location marker
@@ -187,7 +280,20 @@ const Navigation = () => {
         map.current.remove();
       }
     };
-  }, [userLocation, destination, destinationName, distanceRemaining, eta]);
+  }, [userLocation, destination, destinationName, distanceRemaining, eta, mapToken]);
+
+  // Update route visualization when selected route changes
+  useEffect(() => {
+    if (!map.current || routes.length === 0) return;
+
+    routes.forEach((route, index) => {
+      const layerId = `route-${index}`;
+      if (map.current?.getLayer(layerId)) {
+        map.current.setPaintProperty(layerId, 'line-width', index === selectedRoute ? 6 : 4);
+        map.current.setPaintProperty(layerId, 'line-opacity', index === selectedRoute ? 1 : 0.5);
+      }
+    });
+  }, [selectedRoute, routes]);
 
   useEffect(() => {
     // Get real GPS location and speed data
@@ -310,6 +416,19 @@ const Navigation = () => {
             SOS
           </Button>
 
+          {/* Route Options Button */}
+          {routes.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowRouteOptions(!showRouteOptions)}
+              className="absolute bottom-20 right-4 bg-black/50 backdrop-blur-sm text-white hover:bg-black/70"
+            >
+              <NavigationIcon className="h-4 w-4 mr-1" />
+              Routes
+            </Button>
+          )}
+
           {/* Quick Stops Toggle */}
           <Button
             variant="ghost"
@@ -319,6 +438,48 @@ const Navigation = () => {
           >
             <Coffee className="h-4 w-4" />
           </Button>
+
+          {/* Route Options Panel */}
+          {showRouteOptions && routes.length > 0 && (
+            <Card className="absolute bottom-20 left-4 right-4 max-w-md mx-auto">
+              <CardContent className="p-4">
+                <h3 className="font-semibold mb-3 text-foreground">Route Options</h3>
+                <div className="space-y-2">
+                  {routes.map((route, index) => (
+                    <button
+                      key={index}
+                      onClick={() => {
+                        setSelectedRoute(index);
+                        setShowRouteOptions(false);
+                      }}
+                      className={`w-full p-3 rounded-lg border-2 transition-all text-left ${
+                        selectedRoute === index 
+                          ? 'border-primary bg-primary/10' 
+                          : 'border-border bg-background hover:bg-muted'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="w-3 h-3 rounded-full" 
+                            style={{ backgroundColor: route.color }}
+                          />
+                          <span className="font-medium text-foreground">{route.label}</span>
+                        </div>
+                        {selectedRoute === index && (
+                          <span className="text-xs text-primary font-medium">ACTIVE</span>
+                        )}
+                      </div>
+                      <div className="flex gap-4 text-sm text-muted-foreground ml-5">
+                        <span>{(route.distance / 1000).toFixed(1)} km</span>
+                        <span>{Math.round(route.duration / 60)} min</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Navigation Instructions */}
