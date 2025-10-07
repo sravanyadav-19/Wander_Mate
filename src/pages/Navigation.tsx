@@ -93,34 +93,70 @@ const Navigation = () => {
   // Fetch routes from Mapbox Directions API
   const fetchRoutes = async (startLng: number, startLat: number, endLng: number, endLat: number, token: string) => {
     try {
-      const profiles = [
-        { name: 'traffic', profile: 'driving-traffic', color: '#3b82f6', label: 'Dynamic (Traffic)' },
-        { name: 'shortest', profile: 'driving', color: '#10b981', label: 'Shortest Path' },
-        { name: 'highway', profile: 'driving', color: '#f59e0b', label: 'Highway Route' }
-      ];
+      // Fetch traffic-aware route
+      const trafficUrl = `https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${startLng},${startLat};${endLng},${endLat}?geometries=geojson&steps=true&overview=full&access_token=${token}`;
+      const trafficResponse = await fetch(trafficUrl);
+      const trafficData = await trafficResponse.json();
 
-      const routePromises = profiles.map(async (p) => {
-        const url = `https://api.mapbox.com/directions/v5/mapbox/${p.profile}/${startLng},${startLat};${endLng},${endLat}?alternatives=true&geometries=geojson&steps=true&access_token=${token}`;
-        const response = await fetch(url);
-        const data = await response.json();
+      // Fetch alternative routes for shortest and highway options
+      const alternativesUrl = `https://api.mapbox.com/directions/v5/mapbox/driving/${startLng},${startLat};${endLng},${endLat}?alternatives=true&geometries=geojson&steps=true&overview=full&annotations=distance,duration&access_token=${token}`;
+      const alternativesResponse = await fetch(alternativesUrl);
+      const alternativesData = await alternativesResponse.json();
+
+      const fetchedRoutes = [];
+
+      // Add traffic-aware route (primary route)
+      if (trafficData.routes && trafficData.routes.length > 0) {
+        const route = trafficData.routes[0];
+        fetchedRoutes.push({
+          name: 'traffic',
+          profile: 'driving-traffic',
+          color: '#3b82f6',
+          label: 'Dynamic (Traffic)',
+          geometry: route.geometry,
+          duration: route.duration,
+          distance: route.distance,
+          steps: route.legs[0]?.steps || []
+        });
+      }
+
+      // Add alternative routes
+      if (alternativesData.routes && alternativesData.routes.length > 0) {
+        // Sort by distance to get shortest route
+        const sortedByDistance = [...alternativesData.routes].sort((a, b) => a.distance - b.distance);
         
-        if (data.routes && data.routes.length > 0) {
-          const route = data.routes[0];
-          return {
-            ...p,
-            geometry: route.geometry,
-            duration: route.duration,
-            distance: route.distance,
-            steps: route.legs[0]?.steps || []
-          };
+        // Add shortest route (first in sorted array)
+        if (sortedByDistance[0]) {
+          fetchedRoutes.push({
+            name: 'shortest',
+            profile: 'driving',
+            color: '#10b981',
+            label: 'Shortest Path',
+            geometry: sortedByDistance[0].geometry,
+            duration: sortedByDistance[0].duration,
+            distance: sortedByDistance[0].distance,
+            steps: sortedByDistance[0].legs[0]?.steps || []
+          });
         }
-        return null;
-      });
 
-      const fetchedRoutes = await Promise.all(routePromises);
-      const validRoutes = fetchedRoutes.filter(r => r !== null);
-      setRoutes(validRoutes);
-      return validRoutes;
+        // Add alternative route as "highway" option (typically fastest/highway route)
+        if (alternativesData.routes.length > 1) {
+          const alternativeRoute = alternativesData.routes[1];
+          fetchedRoutes.push({
+            name: 'highway',
+            profile: 'driving',
+            color: '#f59e0b',
+            label: 'Alternative Route',
+            geometry: alternativeRoute.geometry,
+            duration: alternativeRoute.duration,
+            distance: alternativeRoute.distance,
+            steps: alternativeRoute.legs[0]?.steps || []
+          });
+        }
+      }
+
+      setRoutes(fetchedRoutes);
+      return fetchedRoutes;
     } catch (error) {
       console.error('Error fetching routes:', error);
       return [];
@@ -180,13 +216,17 @@ const Navigation = () => {
             mapToken!
           );
 
-          // Add route layers to the map
-          fetchedRoutes.forEach((route, index) => {
+          // Add route layers to the map (draw in reverse order so selected is on top)
+          [...fetchedRoutes].reverse().forEach((route, index) => {
             if (!map.current) return;
             
-            const layerId = `route-${index}`;
-            const sourceId = `route-source-${index}`;
+            const actualIndex = fetchedRoutes.length - 1 - index;
+            const layerId = `route-${actualIndex}`;
+            const sourceId = `route-source-${actualIndex}`;
 
+            // Add casing (outline) for better visibility
+            const casingId = `route-casing-${actualIndex}`;
+            
             map.current.addSource(sourceId, {
               type: 'geojson',
               data: {
@@ -196,6 +236,23 @@ const Navigation = () => {
               }
             });
 
+            // Add route casing (outline)
+            map.current.addLayer({
+              id: casingId,
+              type: 'line',
+              source: sourceId,
+              layout: {
+                'line-join': 'round',
+                'line-cap': 'round'
+              },
+              paint: {
+                'line-color': '#000000',
+                'line-width': actualIndex === selectedRoute ? 10 : 7,
+                'line-opacity': actualIndex === selectedRoute ? 0.4 : 0.2
+              }
+            });
+
+            // Add main route line
             map.current.addLayer({
               id: layerId,
               type: 'line',
@@ -206,8 +263,8 @@ const Navigation = () => {
               },
               paint: {
                 'line-color': route.color,
-                'line-width': index === selectedRoute ? 6 : 4,
-                'line-opacity': index === selectedRoute ? 1 : 0.5
+                'line-width': actualIndex === selectedRoute ? 8 : 5,
+                'line-opacity': actualIndex === selectedRoute ? 0.95 : 0.6
               }
             });
           });
@@ -288,11 +345,25 @@ const Navigation = () => {
 
     routes.forEach((route, index) => {
       const layerId = `route-${index}`;
+      const casingId = `route-casing-${index}`;
+      
       if (map.current?.getLayer(layerId)) {
-        map.current.setPaintProperty(layerId, 'line-width', index === selectedRoute ? 6 : 4);
-        map.current.setPaintProperty(layerId, 'line-opacity', index === selectedRoute ? 1 : 0.5);
+        map.current.setPaintProperty(layerId, 'line-width', index === selectedRoute ? 8 : 5);
+        map.current.setPaintProperty(layerId, 'line-opacity', index === selectedRoute ? 0.95 : 0.6);
+      }
+      
+      if (map.current?.getLayer(casingId)) {
+        map.current.setPaintProperty(casingId, 'line-width', index === selectedRoute ? 10 : 7);
+        map.current.setPaintProperty(casingId, 'line-opacity', index === selectedRoute ? 0.4 : 0.2);
       }
     });
+
+    // Update ETA and distance based on selected route
+    if (routes[selectedRoute]) {
+      const route = routes[selectedRoute];
+      setDistanceRemaining(`${(route.distance / 1000).toFixed(1)} km`);
+      setEta(`${Math.round(route.duration / 60)} min`);
+    }
   }, [selectedRoute, routes]);
 
   useEffect(() => {
