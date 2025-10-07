@@ -39,6 +39,7 @@ const Navigation = () => {
   const [routes, setRoutes] = useState<any[]>([]);
   const [selectedRoute, setSelectedRoute] = useState(0);
   const [showRouteOptions, setShowRouteOptions] = useState(false);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
   
   // Get destination from navigation state or session storage fallback
   const navState = (location.state as any) || (typeof window !== 'undefined' ? JSON.parse(sessionStorage.getItem('nav_destination') || 'null') : null);
@@ -52,11 +53,19 @@ const Navigation = () => {
     icon: <ArrowUp className="h-6 w-6" />
   });
 
-  const nextInstruction = {
+  const [nextInstruction, setNextInstruction] = useState({
     direction: "right",
     text: "Next instruction will appear soon",
     distance: "Then",
     icon: <ArrowRight className="h-5 w-5" />
+  });
+
+  // Get instruction icon based on maneuver type
+  const getInstructionIcon = (maneuver: string) => {
+    if (maneuver.includes('left')) return <ArrowLeft className="h-6 w-6" />;
+    if (maneuver.includes('right')) return <ArrowRight className="h-6 w-6" />;
+    if (maneuver.includes('straight')) return <ArrowUp className="h-6 w-6" />;
+    return <ArrowUp className="h-6 w-6" />;
   };
 
   const quickStops = [
@@ -163,11 +172,8 @@ const Navigation = () => {
     }
   };
 
+  // Fetch Mapbox token on mount
   useEffect(() => {
-    // Initialize map
-    if (!mapContainer.current) return;
-
-    // Ensure we have a Mapbox token; fetch from Supabase Edge Function if not yet loaded
     if (!mapToken) {
       (async () => {
         try {
@@ -177,169 +183,128 @@ const Navigation = () => {
           console.warn('Mapbox token fetch failed', e);
         }
       })();
-
-      // Show helpful placeholder until token arrives
-      mapContainer.current.innerHTML = `
-        <div class="absolute inset-0 bg-gradient-to-br from-blue-900 to-blue-700 flex items-center justify-center">
-          <div class="text-white text-center p-4">
-            <h3 class="text-xl font-semibold mb-2">Add your Mapbox token</h3>
-            <p class="text-blue-200">Set MAPBOX_PUBLIC_TOKEN in Supabase Edge Function secrets.</p>
-          </div>
-        </div>
-      `;
-      return;
     }
+  }, []);
+
+  // Initialize map (separate effect to prevent infinite loops)
+  useEffect(() => {
+    if (!mapContainer.current || !mapToken || !userLocation || !destination) return;
+    if (map.current) return; // Map already initialized
+
+    try {
+      mapboxgl.accessToken = mapToken;
     if (userLocation && destination) {
-      try {
-        mapboxgl.accessToken = mapToken as string;
-        
-        // Calculate center point between user and destination
-        const centerLat = (userLocation.lat + destination.lat) / 2;
-        const centerLng = (userLocation.lng + destination.lng) / 2;
-        
-        map.current = new mapboxgl.Map({
-          container: mapContainer.current,
-          style: 'mapbox://styles/mapbox/streets-v12',
-          center: [centerLng, centerLat],
-          zoom: 12
-        });
+      
+      // Calculate center point between user and destination
+      const centerLat = (userLocation.lat + destination.lat) / 2;
+      const centerLng = (userLocation.lng + destination.lng) / 2;
+      
+      map.current = new mapboxgl.Map({
+        container: mapContainer.current,
+        style: 'mapbox://styles/mapbox/streets-v12',
+        center: [centerLng, centerLat],
+        zoom: 12
+      });
 
-        map.current.on('load', async () => {
-          if (!map.current || !userLocation || !destination) return;
+      map.current.on('load', async () => {
+        if (!map.current || !userLocation || !destination) return;
 
-          // Fetch all route options
-          const fetchedRoutes = await fetchRoutes(
-            userLocation.lng,
-            userLocation.lat,
-            destination.lng,
-            destination.lat,
-            mapToken!
-          );
+        // Fetch all route options
+        const fetchedRoutes = await fetchRoutes(
+          userLocation.lng,
+          userLocation.lat,
+          destination.lng,
+          destination.lat,
+          mapToken!
+        );
 
-          // Add route layers to the map (draw in reverse order so selected is on top)
-          [...fetchedRoutes].reverse().forEach((route, index) => {
-            if (!map.current) return;
-            
-            const actualIndex = fetchedRoutes.length - 1 - index;
-            const layerId = `route-${actualIndex}`;
-            const sourceId = `route-source-${actualIndex}`;
+        // Add route layers to the map (draw in reverse order so selected is on top)
+        [...fetchedRoutes].reverse().forEach((route, index) => {
+          if (!map.current) return;
+          
+          const actualIndex = fetchedRoutes.length - 1 - index;
+          const layerId = `route-${actualIndex}`;
+          const sourceId = `route-source-${actualIndex}`;
 
-            // Add casing (outline) for better visibility
-            const casingId = `route-casing-${actualIndex}`;
-            
-            map.current.addSource(sourceId, {
-              type: 'geojson',
-              data: {
-                type: 'Feature',
-                properties: {},
-                geometry: route.geometry
-              }
-            });
-
-            // Add route casing (outline)
-            map.current.addLayer({
-              id: casingId,
-              type: 'line',
-              source: sourceId,
-              layout: {
-                'line-join': 'round',
-                'line-cap': 'round'
-              },
-              paint: {
-                'line-color': '#000000',
-                'line-width': actualIndex === selectedRoute ? 10 : 7,
-                'line-opacity': actualIndex === selectedRoute ? 0.4 : 0.2
-              }
-            });
-
-            // Add main route line
-            map.current.addLayer({
-              id: layerId,
-              type: 'line',
-              source: sourceId,
-              layout: {
-                'line-join': 'round',
-                'line-cap': 'round'
-              },
-              paint: {
-                'line-color': route.color,
-                'line-width': actualIndex === selectedRoute ? 8 : 5,
-                'line-opacity': actualIndex === selectedRoute ? 0.95 : 0.6
-              }
-            });
+          // Add casing (outline) for better visibility
+          const casingId = `route-casing-${actualIndex}`;
+          
+          map.current.addSource(sourceId, {
+            type: 'geojson',
+            data: {
+              type: 'Feature',
+              properties: {},
+              geometry: route.geometry
+            }
           });
 
-          // Fit map to show all routes
-          if (fetchedRoutes.length > 0) {
-            const bounds = new mapboxgl.LngLatBounds();
-            bounds.extend([userLocation.lng, userLocation.lat]);
-            bounds.extend([destination.lng, destination.lat]);
-            map.current.fitBounds(bounds, { padding: 80 });
-          }
+          // Add route casing (outline)
+          map.current.addLayer({
+            id: casingId,
+            type: 'line',
+            source: sourceId,
+            layout: {
+              'line-join': 'round',
+              'line-cap': 'round'
+            },
+            paint: {
+              'line-color': '#000000',
+              'line-width': actualIndex === selectedRoute ? 10 : 7,
+              'line-opacity': actualIndex === selectedRoute ? 0.4 : 0.2
+            }
+          });
+
+          // Add main route line
+          map.current.addLayer({
+            id: layerId,
+            type: 'line',
+            source: sourceId,
+            layout: {
+              'line-join': 'round',
+              'line-cap': 'round'
+            },
+            paint: {
+              'line-color': route.color,
+              'line-width': actualIndex === selectedRoute ? 8 : 5,
+              'line-opacity': actualIndex === selectedRoute ? 0.95 : 0.6
+            }
+          });
         });
 
-        // Add user location marker
-        new mapboxgl.Marker({ color: '#3b82f6' })
-          .setLngLat([userLocation.lng, userLocation.lat])
-          .addTo(map.current);
-
-        // Add destination marker
-        new mapboxgl.Marker({ color: '#ef4444' })
-          .setLngLat([destination.lng, destination.lat])
-          .addTo(map.current);
-
-        // Add navigation controls
-        map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
-      } catch (error) {
-        console.error('Error initializing map:', error);
-        // Show fallback UI
-        if (mapContainer.current) {
-          mapContainer.current.innerHTML = `
-            <div class="absolute inset-0 bg-gradient-to-br from-blue-900 to-blue-700 flex items-center justify-center">
-              <div class="text-white text-center p-4">
-                <div class="mb-4">
-                  <svg class="w-16 h-16 mx-auto mb-2" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-                  </svg>
-                </div>
-                <h3 class="text-xl font-semibold mb-2">Navigating to ${destinationName}</h3>
-                <p class="text-blue-200 mb-1">Distance: ${distanceRemaining}</p>
-                <p class="text-blue-200">ETA: ${eta}</p>
-                <div class="mt-4 bg-white/20 backdrop-blur rounded-lg p-3">
-                  <p class="text-sm">📍 Add Mapbox token in Settings for interactive map</p>
-                </div>
-              </div>
-            </div>
-          `;
+        // Fit map to show all routes
+        if (fetchedRoutes.length > 0) {
+          const bounds = new mapboxgl.LngLatBounds();
+          bounds.extend([userLocation.lng, userLocation.lat]);
+          bounds.extend([destination.lng, destination.lat]);
+          map.current.fitBounds(bounds, { padding: 80 });
         }
-      }
-    } else {
-      // Show loading state
-      if (mapContainer.current) {
-        mapContainer.current.innerHTML = `
-          <div class="absolute inset-0 bg-gradient-to-br from-blue-900 to-blue-700 flex items-center justify-center">
-            <div class="text-white text-center">
-              <div class="animate-pulse mb-4">
-                <svg class="w-16 h-16 mx-auto mb-2" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-                </svg>
-              </div>
-              <h3 class="text-xl font-semibold mb-2">Getting your location...</h3>
-              <p class="text-blue-200">Please wait while we calculate your route</p>
-            </div>
-          </div>
-        `;
-      }
+      });
+
+      // Add user location marker
+      new mapboxgl.Marker({ color: '#3b82f6' })
+        .setLngLat([userLocation.lng, userLocation.lat])
+        .addTo(map.current);
+
+      // Add destination marker
+      new mapboxgl.Marker({ color: '#ef4444' })
+        .setLngLat([destination.lng, destination.lat])
+        .addTo(map.current);
+
+      // Add navigation controls
+      map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+    } catch (error) {
+      console.error('Error initializing map:', error);
     }
 
     return () => {
       if (map.current) {
         map.current.remove();
+        map.current = null;
       }
     };
-  }, [userLocation, destination, destinationName, distanceRemaining, eta, mapToken]);
+  }, [mapToken, userLocation, destination]);
 
-  // Update route visualization when selected route changes
+  // Update route visualization and instructions when selected route changes
   useEffect(() => {
     if (!map.current || routes.length === 0) return;
 
@@ -363,20 +328,34 @@ const Navigation = () => {
       const route = routes[selectedRoute];
       setDistanceRemaining(`${(route.distance / 1000).toFixed(1)} km`);
       setEta(`${Math.round(route.duration / 60)} min`);
+      
+      // Update turn-by-turn instructions
+      if (route.steps && route.steps.length > 0) {
+        setCurrentStepIndex(0);
+        const currentStep = route.steps[0];
+        setCurrentInstruction({
+          direction: currentStep.maneuver?.type || "straight",
+          text: currentStep.maneuver?.instruction || "Start journey",
+          distance: `${(currentStep.distance / 1000).toFixed(1)} km`,
+          icon: getInstructionIcon(currentStep.maneuver?.type || "straight")
+        });
+        
+        if (route.steps.length > 1) {
+          const nextStep = route.steps[1];
+          setNextInstruction({
+            direction: nextStep.maneuver?.type || "straight",
+            text: nextStep.maneuver?.instruction || "Continue",
+            distance: "Then",
+            icon: getInstructionIcon(nextStep.maneuver?.type || "straight")
+          });
+        }
+      }
     }
   }, [selectedRoute, routes]);
 
+  // Track user location and update instructions
   useEffect(() => {
-    // Get real GPS location and speed data
-    if (!destination) {
-      setCurrentInstruction({
-        direction: "straight",
-        text: "No destination set",
-        distance: "N/A",
-        icon: <MapPin className="h-6 w-6" />
-      });
-      return;
-    }
+    if (!destination) return;
 
     if (navigator.geolocation) {
       const id = navigator.geolocation.watchPosition(
@@ -386,43 +365,75 @@ const Navigation = () => {
           // Update user location
           setUserLocation({ lat: latitude, lng: longitude });
           
-          // Calculate distance to destination
-          const distance = calculateDistance(latitude, longitude, destination.lat, destination.lng);
-          setDistanceRemaining(`${distance.toFixed(1)} km`);
-          
-          // Calculate ETA
-          const currentSpeedKmh = speed ? Math.round(speed * 3.6) : 50;
-          setEta(calculateETA(distance, currentSpeedKmh));
-          
-          // Update navigation instruction based on distance
-          if (distance < 1) {
-            setCurrentInstruction({
-              direction: "straight",
-              text: "Approaching destination",
-              distance: `${Math.round(distance * 1000)} m`,
-              icon: <MapPin className="h-6 w-6" />
-            });
-          } else {
-            setCurrentInstruction({
-              direction: "straight",
-              text: "Continue toward destination",
-              distance: `${distance.toFixed(1)} km`,
-              icon: <ArrowUp className="h-6 w-6" />
-            });
-          }
-          
           // Update speed
           if (speed !== null) {
             const speedKmh = Math.round(speed * 3.6);
             setCurrentSpeed(speedKmh > 0 ? speedKmh : 0);
           }
+          
+          // Update instructions based on current position and route steps
+          if (routes.length > 0 && routes[selectedRoute]?.steps) {
+            const steps = routes[selectedRoute].steps;
+            
+            // Find current step based on distance
+            let cumulativeDistance = 0;
+            let currentIdx = currentStepIndex;
+            
+            for (let i = currentStepIndex; i < steps.length; i++) {
+              const step = steps[i];
+              if (step.maneuver?.location) {
+                const distToStep = calculateDistance(
+                  latitude,
+                  longitude,
+                  step.maneuver.location[1],
+                  step.maneuver.location[0]
+                );
+                
+                // If we're close to the next step, advance
+                if (distToStep < 0.05 && i > currentStepIndex) { // 50m threshold
+                  currentIdx = i;
+                  setCurrentStepIndex(i);
+                  break;
+                }
+              }
+            }
+            
+            // Update current and next instructions
+            if (currentIdx < steps.length) {
+              const currentStep = steps[currentIdx];
+              const distToCurrentStep = currentStep.maneuver?.location 
+                ? calculateDistance(
+                    latitude,
+                    longitude,
+                    currentStep.maneuver.location[1],
+                    currentStep.maneuver.location[0]
+                  )
+                : currentStep.distance / 1000;
+              
+              setCurrentInstruction({
+                direction: currentStep.maneuver?.type || "straight",
+                text: currentStep.maneuver?.instruction || "Continue",
+                distance: distToCurrentStep < 1 
+                  ? `${Math.round(distToCurrentStep * 1000)} m`
+                  : `${distToCurrentStep.toFixed(1)} km`,
+                icon: getInstructionIcon(currentStep.maneuver?.type || "straight")
+              });
+              
+              // Update next instruction
+              if (currentIdx + 1 < steps.length) {
+                const nextStep = steps[currentIdx + 1];
+                setNextInstruction({
+                  direction: nextStep.maneuver?.type || "straight",
+                  text: nextStep.maneuver?.instruction || "Continue",
+                  distance: "Then",
+                  icon: getInstructionIcon(nextStep.maneuver?.type || "straight")
+                });
+              }
+            }
+          }
         },
         (error) => {
           console.warn('Error getting GPS data:', error);
-          // Fallback to demo data
-          setCurrentSpeed(Math.floor(Math.random() * 20) + 45);
-          setDistanceRemaining("18.5 km");
-          setEta("25 min");
         },
         {
           enableHighAccuracy: true,
@@ -431,14 +442,12 @@ const Navigation = () => {
         }
       );
       setWatchId(id);
+      
+      return () => {
+        navigator.geolocation.clearWatch(id);
+      };
     }
-
-    return () => {
-      if (watchId) {
-        navigator.geolocation.clearWatch(watchId);
-      }
-    };
-  }, [watchId, destination]);
+  }, [destination, routes, selectedRoute, currentStepIndex]);
 
   const endNavigation = () => {
     setIsNavigating(false);
