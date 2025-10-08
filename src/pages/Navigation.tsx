@@ -42,6 +42,7 @@ const Navigation = () => {
   const [selectedRoute, setSelectedRoute] = useState(0);
   const [showRouteOptions, setShowRouteOptions] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [userHeading, setUserHeading] = useState<number | null>(null);
   
   // Get destination from navigation state or session storage fallback
   const navState = (location.state as any) || (typeof window !== 'undefined' ? JSON.parse(sessionStorage.getItem('nav_destination') || 'null') : null);
@@ -388,19 +389,28 @@ const Navigation = () => {
     if (navigator.geolocation) {
       const id = navigator.geolocation.watchPosition(
         (position) => {
-          const { latitude, longitude, speed } = position.coords;
+          const { latitude, longitude, speed, heading } = position.coords;
           
           // Update user location state
           setUserLocation({ lat: latitude, lng: longitude });
+          
+          // Update heading if available
+          if (heading !== null && !isNaN(heading)) {
+            setUserHeading(heading);
+          }
           
           // Update user marker position and keep map centered on user
           if (userMarker.current) {
             userMarker.current.setLngLat([longitude, latitude]);
             
-            // Keep map centered on user during navigation with smooth animation
+            // Keep map centered on user during navigation with smooth animation and rotation
             if (map.current && isNavigating) {
+              // Use heading to rotate map so route direction is always "up"
+              const bearing = heading !== null && !isNaN(heading) ? heading : userHeading || 0;
               map.current.easeTo({
                 center: [longitude, latitude],
+                bearing: bearing,
+                pitch: 60,
                 duration: 1000
               });
             }
