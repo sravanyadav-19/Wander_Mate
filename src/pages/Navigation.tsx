@@ -292,6 +292,7 @@ const Navigation = () => {
 
       // Add navigation controls
       map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+      }
     } catch (error) {
       console.error('Error initializing map:', error);
     }
