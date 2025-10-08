@@ -275,12 +275,26 @@ const Navigation = () => {
           });
         });
 
-        // Fit map to show all routes
+        // Show full route initially
         if (fetchedRoutes.length > 0 && userLocation) {
           const bounds = new mapboxgl.LngLatBounds();
           bounds.extend([userLocation.lng, userLocation.lat]);
           bounds.extend([destination.lng, destination.lat]);
-          map.current.fitBounds(bounds, { padding: 80 });
+          map.current.fitBounds(bounds, { padding: 100, duration: 1000 });
+          
+          // After 2.5 seconds, zoom to user location for navigation
+          setTimeout(() => {
+            if (map.current && userLocation) {
+              map.current.flyTo({
+                center: [userLocation.lng, userLocation.lat],
+                zoom: 16,
+                pitch: 45,
+                bearing: 0,
+                duration: 2000,
+                essential: true
+              });
+            }
+          }, 2500);
         }
       });
 
@@ -379,9 +393,17 @@ const Navigation = () => {
           // Update user location state
           setUserLocation({ lat: latitude, lng: longitude });
           
-          // Update user marker position without recreating map
+          // Update user marker position and keep map centered on user
           if (userMarker.current) {
             userMarker.current.setLngLat([longitude, latitude]);
+            
+            // Keep map centered on user during navigation with smooth animation
+            if (map.current && isNavigating) {
+              map.current.easeTo({
+                center: [longitude, latitude],
+                duration: 1000
+              });
+            }
           }
           
           // Update speed
