@@ -27,6 +27,8 @@ const Navigation = () => {
   const location = useLocation();
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
+  const userMarker = useRef<mapboxgl.Marker | null>(null);
+  const destMarker = useRef<mapboxgl.Marker | null>(null);
   const [isNavigating, setIsNavigating] = useState(true);
   const [currentSpeed, setCurrentSpeed] = useState(0);
   const [eta, setEta] = useState("Calculating...");
@@ -186,37 +188,41 @@ const Navigation = () => {
     }
   }, []);
 
-  // Initialize map (separate effect to prevent infinite loops)
+  // Initialize map once (no userLocation dependency to prevent re-renders)
   useEffect(() => {
-    if (!mapContainer.current || !mapToken || !userLocation || !destination) return;
+    if (!mapContainer.current || !mapToken || !destination) return;
     if (map.current) return; // Map already initialized
 
     try {
       mapboxgl.accessToken = mapToken;
-    if (userLocation && destination) {
       
-      // Calculate center point between user and destination
-      const centerLat = (userLocation.lat + destination.lat) / 2;
-      const centerLng = (userLocation.lng + destination.lng) / 2;
+      // Use initial user location or destination for center
+      const initialLat = userLocation?.lat || destination.lat;
+      const initialLng = userLocation?.lng || destination.lng;
       
       map.current = new mapboxgl.Map({
         container: mapContainer.current,
         style: 'mapbox://styles/mapbox/streets-v12',
-        center: [centerLng, centerLat],
+        center: [initialLng, initialLat],
         zoom: 12
       });
 
       map.current.on('load', async () => {
-        if (!map.current || !userLocation || !destination) return;
+        if (!map.current || !destination) return;
+        
+        const startLng = userLocation?.lng || destination.lng;
+        const startLat = userLocation?.lat || destination.lat;
 
         // Fetch all route options
         const fetchedRoutes = await fetchRoutes(
-          userLocation.lng,
-          userLocation.lat,
+          startLng,
+          startLat,
           destination.lng,
           destination.lat,
           mapToken!
         );
+        
+        setRoutes(fetchedRoutes);
 
         // Add route layers to the map (draw in reverse order so selected is on top)
         [...fetchedRoutes].reverse().forEach((route, index) => {
@@ -225,8 +231,6 @@ const Navigation = () => {
           const actualIndex = fetchedRoutes.length - 1 - index;
           const layerId = `route-${actualIndex}`;
           const sourceId = `route-source-${actualIndex}`;
-
-          // Add casing (outline) for better visibility
           const casingId = `route-casing-${actualIndex}`;
           
           map.current.addSource(sourceId, {
@@ -272,7 +276,7 @@ const Navigation = () => {
         });
 
         // Fit map to show all routes
-        if (fetchedRoutes.length > 0) {
+        if (fetchedRoutes.length > 0 && userLocation) {
           const bounds = new mapboxgl.LngLatBounds();
           bounds.extend([userLocation.lng, userLocation.lat]);
           bounds.extend([destination.lng, destination.lat]);
@@ -280,30 +284,39 @@ const Navigation = () => {
         }
       });
 
-      // Add user location marker
-      new mapboxgl.Marker({ color: '#3b82f6' })
-        .setLngLat([userLocation.lng, userLocation.lat])
-        .addTo(map.current);
+      // Create user location marker
+      if (userLocation) {
+        userMarker.current = new mapboxgl.Marker({ color: '#3b82f6' })
+          .setLngLat([userLocation.lng, userLocation.lat])
+          .addTo(map.current);
+      }
 
-      // Add destination marker
-      new mapboxgl.Marker({ color: '#ef4444' })
+      // Create destination marker
+      destMarker.current = new mapboxgl.Marker({ color: '#ef4444' })
         .setLngLat([destination.lng, destination.lat])
         .addTo(map.current);
 
       // Add navigation controls
       map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
-      }
     } catch (error) {
       console.error('Error initializing map:', error);
     }
 
     return () => {
+      if (userMarker.current) {
+        userMarker.current.remove();
+        userMarker.current = null;
+      }
+      if (destMarker.current) {
+        destMarker.current.remove();
+        destMarker.current = null;
+      }
       if (map.current) {
         map.current.remove();
         map.current = null;
       }
     };
-  }, [mapToken, userLocation, destination]);
+  }, [mapToken, destination]);
 
   // Update route visualization and instructions when selected route changes
   useEffect(() => {
@@ -363,8 +376,13 @@ const Navigation = () => {
         (position) => {
           const { latitude, longitude, speed } = position.coords;
           
-          // Update user location
+          // Update user location state
           setUserLocation({ lat: latitude, lng: longitude });
+          
+          // Update user marker position without recreating map
+          if (userMarker.current) {
+            userMarker.current.setLngLat([longitude, latitude]);
+          }
           
           // Update speed
           if (speed !== null) {
