@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { supabase } from "@/integrations/supabase/client";
 import { 
   Plus,
   MapPin,
@@ -17,6 +18,11 @@ import {
   Save
 } from "lucide-react";
 
+interface Suggestion {
+  place_name: string;
+  center: [number, number];
+}
+
 const TripPlanning = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -28,12 +34,73 @@ const TripPlanning = () => {
   const [tripName, setTripName] = useState("");
   const [preferredTime, setPreferredTime] = useState("");
   const [routePreference, setRoutePreference] = useState("fastest");
+  const [suggestions, setSuggestions] = useState<Suggestion[][]>([]);
+  const [focusedInput, setFocusedInput] = useState<number | null>(null);
+  const [mapToken, setMapToken] = useState<string | null>(null);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
 
   const routeOptions = [
     { id: "fastest", label: "Fastest", description: "Minimize travel time" },
     { id: "scenic", label: "Scenic", description: "Beautiful views and interesting stops" },
     { id: "efficient", label: "Efficient", description: "Balance time and fuel consumption" }
   ];
+
+  // Fetch Mapbox token
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await supabase.functions.invoke('mapbox-token');
+        if (data?.token) setMapToken(data.token);
+      } catch (e) {
+        console.warn('Mapbox token fetch failed', e);
+      }
+    })();
+  }, []);
+
+  // Fetch autocomplete suggestions
+  const fetchSuggestions = async (query: string, index: number) => {
+    if (!query.trim() || query.length < 2 || !mapToken) {
+      const newSuggestions = [...suggestions];
+      newSuggestions[index] = [];
+      setSuggestions(newSuggestions);
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${mapToken}&limit=5&autocomplete=true`
+      );
+      const data = await response.json();
+      
+      if (data.features) {
+        const newSuggestions = [...suggestions];
+        newSuggestions[index] = data.features;
+        setSuggestions(newSuggestions);
+      }
+    } catch (error) {
+      console.error('Error fetching suggestions:', error);
+    }
+  };
+
+  // Handle clicking outside suggestions
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(event.target as Node)) {
+        setFocusedInput(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const selectSuggestion = (index: number, suggestion: Suggestion) => {
+    updateDestination(index, suggestion.place_name);
+    const newSuggestions = [...suggestions];
+    newSuggestions[index] = [];
+    setSuggestions(newSuggestions);
+    setFocusedInput(null);
+  };
 
   // Mock optimized itinerary
   const optimizedRoute = {
@@ -63,6 +130,7 @@ const TripPlanning = () => {
     const newDestinations = [...destinations];
     newDestinations[index] = value;
     setDestinations(newDestinations);
+    fetchSuggestions(value, index);
   };
 
   const optimizeRoute = () => {
@@ -122,16 +190,37 @@ const TripPlanning = () => {
             
             <div className="space-y-3">
               {destinations.map((destination, index) => (
-                <div key={index} className="flex items-center gap-3">
+                <div key={index} className="relative flex items-center gap-3">
                   <div className="flex items-center justify-center w-8 h-8 bg-primary text-primary-foreground rounded-full text-sm font-medium">
                     {index === 0 ? "S" : index === destinations.length - 1 && destinations.length > 1 ? "E" : index}
                   </div>
-                  <Input
-                    placeholder={index === 0 ? "Starting point" : `Destination ${index}`}
-                    value={destination}
-                    onChange={(e) => updateDestination(index, e.target.value)}
-                    className="flex-1"
-                  />
+                  <div className="flex-1 relative">
+                    <Input
+                      placeholder={index === 0 ? "Starting point" : `Destination ${index}`}
+                      value={destination}
+                      onChange={(e) => updateDestination(index, e.target.value)}
+                      onFocus={() => setFocusedInput(index)}
+                      className="flex-1"
+                    />
+                    {/* Autocomplete Suggestions Dropdown */}
+                    {focusedInput === index && suggestions[index]?.length > 0 && (
+                      <div 
+                        ref={suggestionsRef}
+                        className="absolute top-full left-0 right-0 mt-1 bg-background border border-border rounded-md shadow-lg z-50 max-h-60 overflow-y-auto"
+                      >
+                        {suggestions[index].map((suggestion, suggestionIndex) => (
+                          <button
+                            key={suggestionIndex}
+                            onClick={() => selectSuggestion(index, suggestion)}
+                            className="w-full text-left px-4 py-3 hover:bg-accent transition-colors flex items-start gap-3 border-b border-border last:border-0"
+                          >
+                            <MapPin className="h-4 w-4 text-primary mt-1 flex-shrink-0" />
+                            <span className="text-sm">{suggestion.place_name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   {destinations.length > 1 && (
                     <Button
                       variant="ghost"
