@@ -5,6 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { supabase } from "@/integrations/supabase/client";
+import { useRouteCalculation } from "@/hooks/useRouteCalculation";
+import { usePOI } from "@/hooks/usePOI";
 import { 
   ArrowLeft,
   Navigation, 
@@ -30,121 +32,85 @@ const RouteDetails = () => {
   const [selectedRoute, setSelectedRoute] = useState(0);
   const [weatherData, setWeatherData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [pointsOfInterest, setPointsOfInterest] = useState([]);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [destinationLocation, setDestinationLocation] = useState<{ lat: number; lng: number } | null>(null);
   
   // Get destination info from navigation state
   const destinationCoords = location.state?.destinationCoords;
   const destinationAddress = location.state?.destinationAddress;
 
-  // Mock route data
-  const routes = [
-    {
-      id: 0,
-      type: "fastest",
-      icon: <Zap className="h-4 w-4" />,
-      name: "Fastest Route",
-      duration: "15 min",
-      distance: "3.2 km",
-      traffic: "Light traffic",
-      description: "Main roads with minimal stops",
-      highlights: ["Direct path", "Good road conditions"],
-      color: "text-blue-600",
-      bgColor: "bg-blue-50 border-blue-200"
-    },
-    {
-      id: 1,
-      type: "scenic",
-      icon: <Mountain className="h-4 w-4" />,
-      name: "Scenic Route",
-      duration: "22 min",
-      distance: "4.1 km", 
-      traffic: "Moderate traffic",
-      description: "Beautiful views along the waterfront",
-      highlights: ["Harbor views", "Historic district", "Photo opportunities"],
-      color: "text-green-600",
-      bgColor: "bg-green-50 border-green-200"
-    },
-    {
-      id: 2,
-      type: "recommended",
-      icon: <Coffee className="h-4 w-4" />,
-      name: "Local's Choice",
-      duration: "18 min",
-      distance: "3.8 km",
-      traffic: "Light traffic", 
-      description: "Discover hidden gems along the way",
-      highlights: ["Local coffee shop", "Art gallery", "Quiet streets"],
-      color: "text-orange-600",
-      bgColor: "bg-orange-50 border-orange-200"
-    }
-  ];
+  // Use custom hooks for dynamic route calculation and POI
+  const { routes, isCalculating } = useRouteCalculation(
+    userLocation?.lat || null, 
+    userLocation?.lng || null,
+    destinationLocation?.lat || null,
+    destinationLocation?.lng || null
+  );
+  const { pointsOfInterest } = usePOI(
+    userLocation?.lat || null, 
+    userLocation?.lng || null,
+    destination || ''
+  );
+
+  // Add icons to routes from the hook
+  const routesWithIcons = routes.map(route => ({
+    ...route,
+    icon: route.type === 'fastest' ? <Zap className="h-4 w-4" /> :
+          route.type === 'scenic' ? <Mountain className="h-4 w-4" /> :
+          <Coffee className="h-4 w-4" />
+  }));
 
 
   useEffect(() => {
-    // Get user's current location
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const { latitude, longitude } = position.coords;
-          setUserLocation({ lat: latitude, lng: longitude });
-          
-          // Fetch weather data with real coordinates
-          try {
-            const { data } = await supabase.functions.invoke('weather-route', {
-              body: { 
-                startLat: latitude, 
-                startLng: longitude,
-                endLat: latitude + 0.05, 
-                endLng: longitude + 0.05 
-              }
-            });
-            setWeatherData(data);
-          } catch (error) {
-            console.error('Weather fetch error:', error);
-          }
-          
-          // Fetch nearby points of interest using user's location
-          try {
-            const response = await fetch(
-              `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
-            );
-            const locationData = await response.json();
+    const initializeRoute = async () => {
+      // Get user's current location
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            const { latitude, longitude } = position.coords;
+            setUserLocation({ lat: latitude, lng: longitude });
             
-            // Generate POIs based on location
-            const pois = [
-              { name: `Local Park near ${locationData.locality || 'here'}`, type: "Park", distance: "0.5 km from route" },
-              { name: `Coffee Shop in ${locationData.locality || 'area'}`, type: "Coffee", distance: "0.2 km from route" },
-              { name: `${locationData.locality || 'Local'} Attraction`, type: "Attraction", distance: "0.3 km from route" }
-            ];
-            setPointsOfInterest(pois);
-          } catch (error) {
-            console.error('Error fetching POIs:', error);
-            // Fallback POIs
-            setPointsOfInterest([
-              { name: "Nearby Park", type: "Park", distance: "0.5 km from route" },
-              { name: "Local Coffee", type: "Coffee", distance: "0.2 km from route" },
-              { name: "Local Attraction", type: "Attraction", distance: "0.3 km from route" }
-            ]);
+            // Get or geocode destination coordinates
+            let destCoords = destinationCoords as { lat: number; lng: number } | null;
+            if (!destCoords && destination) {
+              destCoords = await geocodeAddress(destination);
+            }
+            
+            if (destCoords) {
+              setDestinationLocation(destCoords);
+              
+              // Fetch weather data with real coordinates
+              try {
+                const { data } = await supabase.functions.invoke('weather-route', {
+                  body: { 
+                    startLat: latitude, 
+                    startLng: longitude,
+                    endLat: destCoords.lat, 
+                    endLng: destCoords.lng 
+                  }
+                });
+                if (data) {
+                  setWeatherData(data);
+                }
+              } catch (error) {
+                console.error('Weather fetch error:', error);
+              }
+            }
+            
+            setIsLoading(false);
+          },
+          (error) => {
+            console.error('Location error:', error);
+            setIsLoading(false);
           }
-          
-          setIsLoading(false);
-        },
-        (error) => {
-          console.error('Location error:', error);
-          // Fallback data
-          setPointsOfInterest([
-            { name: "Nearby Park", type: "Park", distance: "0.5 km from route" },
-            { name: "Local Coffee", type: "Coffee", distance: "0.2 km from route" },
-            { name: "Local Attraction", type: "Attraction", distance: "0.3 km from route" }
-          ]);
-          setIsLoading(false);
-        }
-      );
-    } else {
-      setIsLoading(false);
-    }
-  }, []);
+        );
+      } else {
+        setIsLoading(false);
+      }
+    };
+
+    initializeRoute();
+  }, [destination, destinationCoords]);
 
   const startNavigation = async () => {
     // Ensure we have destination coordinates; fallback to geocoding by name
@@ -170,7 +136,7 @@ const RouteDetails = () => {
       })
     );
 
-    navigate(`/navigation/${routes[selectedRoute].id}`, {
+    navigate(`/navigation/${routesWithIcons[selectedRoute].id}`, {
       state: {
         destinationName: destination,
         destinationCoords: coords,
@@ -244,8 +210,19 @@ const RouteDetails = () => {
           {/* Route Options */}
           <section>
             <h2 className="text-lg font-semibold mb-4">Choose Your Route</h2>
-            <div className="space-y-3">
-              {routes.map((route) => (
+            {isCalculating ? (
+              <div className="space-y-3">
+                {[1, 2, 3].map(i => (
+                  <Card key={i} className="animate-pulse">
+                    <CardContent className="p-4">
+                      <div className="h-16 bg-muted rounded"></div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {routesWithIcons.map((route) => (
                 <Card 
                   key={route.id}
                   className={`cursor-pointer transition-all ${
@@ -290,8 +267,9 @@ const RouteDetails = () => {
                     )}
                   </CardContent>
                 </Card>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </section>
 
           {/* Points of Interest */}

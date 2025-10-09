@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { SocialShareButton } from "@/components/social/SocialShareButton";
+import { usePlaceDetails } from "@/hooks/usePlaceDetails";
 import { 
   ArrowLeft,
   MapPin, 
@@ -23,51 +24,33 @@ const PlaceDetails = () => {
   const { placeId } = useParams();
   const navigate = useNavigate();
   const [isFavorite, setIsFavorite] = useState(false);
+  const { place, isLoading } = usePlaceDetails(placeId);
 
-  // Mock place data - in production, fetch from API
-  const place = {
-    id: placeId,
-    name: "The High Line",
-    category: "attractions",
-    description: "The High Line is a 1.45-mile-long elevated linear park, greenway and rail trail created on a former New York Central Railroad spur on the west side of Manhattan in New York City.",
-    rating: 4.8,
-    reviewCount: 12450,
-    distance: "1.2 km",
-    estimatedTime: "15 min",
-    address: "New York, NY 10011, United States",
-    phone: "+1 212-500-6035",
-    website: "thehighline.org",
-    openingHours: {
-      today: "7:00 AM - 10:00 PM",
-      tomorrow: "7:00 AM - 10:00 PM"
-    },
-    images: [
-      "🌿", "🚶‍♂️", "🏙️", "🌸"
-    ],
-    tags: ["Park", "Walking", "Views", "Free", "Accessible"],
-    highlights: [
-      "Elevated park built on historic freight rail line",
-      "Stunning city and river views",
-      "Art installations and seasonal plants",
-      "Multiple access points along the route"
-    ],
-    reviews: [
-      {
-        id: 1,
-        user: "Sarah M.",
-        rating: 5,
-        text: "Amazing experience! The views are incredible and it's a peaceful walk through the city.",
-        date: "2 days ago"
-      },
-      {
-        id: 2,
-        user: "Mike T.",
-        rating: 4,
-        text: "Great for morning walks. Can get crowded during peak hours but still worth it.",
-        date: "1 week ago"
-      }
-    ]
-  };
+  if (isLoading) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading place details...</p>
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (!place) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <p className="text-muted-foreground">Place not found</p>
+            <Button onClick={() => navigate(-1)} className="mt-4">Go Back</Button>
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>

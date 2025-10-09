@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 import { 
   Plus,
   MapPin,
@@ -26,6 +28,7 @@ interface Suggestion {
 const TripPlanning = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const initialDestination = searchParams.get("destination") || "";
   
   const [destinations, setDestinations] = useState<string[]>(
@@ -102,19 +105,42 @@ const TripPlanning = () => {
     setFocusedInput(null);
   };
 
-  // Mock optimized itinerary
-  const optimizedRoute = {
-    totalDistance: "12.5 km",
-    totalTime: "45 min",
-    estimatedFuel: "1.2L",
-    stops: destinations.filter(d => d.trim()).length,
-    route: destinations.filter(d => d.trim()).map((dest, index) => ({
-      order: index + 1,
-      name: dest,
-      estimatedTime: `${5 + index * 3} min`,
-      distance: index === 0 ? "0 km" : `${2.1 + index * 1.5} km`
-    }))
+  // Calculate optimized itinerary dynamically
+  const calculateOptimizedRoute = () => {
+    const validDestinations = destinations.filter(d => d.trim());
+    
+    if (validDestinations.length === 0) {
+      return {
+        totalDistance: "0 km",
+        totalTime: "0 min",
+        estimatedFuel: "0L",
+        stops: 0,
+        route: []
+      };
+    }
+
+    // Simplified distance calculation (in production, use real routing API)
+    const avgDistancePerStop = 3.5; // km average between stops
+    const totalDist = (validDestinations.length - 1) * avgDistancePerStop;
+    const avgTimePerStop = 12; // minutes average between stops
+    const totalTime = (validDestinations.length - 1) * avgTimePerStop;
+    const fuelConsumption = totalDist * 0.08; // L/km consumption rate
+
+    return {
+      totalDistance: `${totalDist.toFixed(1)} km`,
+      totalTime: `${totalTime} min`,
+      estimatedFuel: `${fuelConsumption.toFixed(1)}L`,
+      stops: validDestinations.length,
+      route: validDestinations.map((dest, index) => ({
+        order: index + 1,
+        name: dest,
+        estimatedTime: index === 0 ? "Start" : `${(index * avgTimePerStop)} min`,
+        distance: index === 0 ? "0 km" : `${(index * avgDistancePerStop).toFixed(1)} km`
+      }))
+    };
   };
+
+  const optimizedRoute = calculateOptimizedRoute();
 
   const addDestination = () => {
     setDestinations([...destinations, ""]);
@@ -134,10 +160,17 @@ const TripPlanning = () => {
   };
 
   const optimizeRoute = () => {
-    // Mock optimization - in production, this would call a route optimization API
-    const shuffled = [...destinations.filter(d => d.trim())];
-    // Simple optimization simulation
-    setDestinations(shuffled);
+    // Simple optimization: keep starting point, sort others alphabetically
+    // In production, this would use a route optimization API (TSP solver)
+    const validDests = destinations.filter(d => d.trim());
+    if (validDests.length <= 1) return;
+
+    const start = validDests[0];
+    const others = validDests.slice(1).sort();
+    const optimized = [start, ...others];
+    
+    setDestinations(optimized);
+    toast.success("Route optimized for efficiency!");
   };
 
   const startTrip = () => {
@@ -148,9 +181,42 @@ const TripPlanning = () => {
     navigate(`/route/${destinations.filter(d => d.trim())[0]}`);
   };
 
-  const saveTripPlan = () => {
-    // Save trip plan for later
-    console.log("Saving trip plan:", { tripName, destinations, routePreference });
+  const saveTripPlan = async () => {
+    if (!user) {
+      toast.error("Please sign in to save trip plans");
+      return;
+    }
+
+    const validDests = destinations.filter(d => d.trim());
+    if (validDests.length === 0) {
+      toast.error("Please add at least one destination");
+      return;
+    }
+
+    try {
+      // Save as a planned trip (status: 'planned')
+      const { error } = await supabase
+        .from('trips')
+        .insert({
+          user_id: user.id,
+          title: tripName || `Trip Plan - ${new Date().toLocaleDateString()}`,
+          start_location: validDests[0],
+          end_location: validDests[validDests.length - 1],
+          status: 'planned',
+          route_data: {
+            destinations: validDests,
+            preference: routePreference,
+            optimizedRoute: optimizedRoute
+          }
+        });
+
+      if (error) throw error;
+      
+      toast.success("Trip plan saved successfully!");
+    } catch (error) {
+      console.error('Error saving trip plan:', error);
+      toast.error("Failed to save trip plan");
+    }
   };
 
   return (

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,7 @@ import {
 const TripComplete = () => {
   const { tripId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const [rating, setRating] = useState(0);
   const [notes, setNotes] = useState("");
@@ -29,18 +30,45 @@ const TripComplete = () => {
   const [tripTitle, setTripTitle] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
-  // Mock trip data
-  const tripData = {
-    id: tripId,
-    startLocation: "Current Location", 
-    endLocation: "Brooklyn Bridge",
-    distance: "3.2 km",
-    duration: "18 min",
-    route: "Scenic Route",
-    startTime: new Date(Date.now() - 18 * 60 * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-    endTime: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-    date: new Date().toLocaleDateString()
-  };
+  // Get trip data from navigation state or session storage
+  const [tripData, setTripData] = useState<any>(null);
+
+  useEffect(() => {
+    const stateData = location.state;
+    const sessionData = sessionStorage.getItem('completed_trip');
+    
+    if (stateData?.tripData) {
+      setTripData(stateData.tripData);
+    } else if (sessionData) {
+      try {
+        const parsed = JSON.parse(sessionData);
+        setTripData(parsed);
+      } catch (e) {
+        console.error('Error parsing session trip data:', e);
+      }
+    } else {
+      // Generate default data based on session navigation data
+      const navData = sessionStorage.getItem('nav_destination');
+      if (navData) {
+        try {
+          const parsed = JSON.parse(navData);
+          setTripData({
+            id: tripId,
+            startLocation: "Your starting point",
+            endLocation: parsed.destinationName || "Destination",
+            distance: "0 km", // Would be calculated during navigation
+            duration: "0 min",
+            route: "Completed Route",
+            startTime: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+            endTime: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+            date: new Date().toLocaleDateString()
+          });
+        } catch (e) {
+          console.error('Error parsing navigation data:', e);
+        }
+      }
+    }
+  }, [location.state, tripId]);
 
   const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -67,8 +95,17 @@ const TripComplete = () => {
       return;
     }
 
+    if (!tripData) {
+      toast.error("Trip data not available");
+      return;
+    }
+
     setIsSaving(true);
     try {
+      // Parse distance and duration safely
+      const distanceValue = parseFloat(tripData.distance) || 0;
+      const durationValue = parseInt(tripData.duration) || 0;
+
       // Save trip to database
       const { data: trip, error: tripError } = await supabase
         .from('trips')
@@ -78,10 +115,10 @@ const TripComplete = () => {
           description: notes,
           start_location: tripData.startLocation,
           end_location: tripData.endLocation,
-          distance: parseFloat(tripData.distance),
-          duration: 18, // minutes
+          distance: distanceValue,
+          duration: durationValue,
           status: 'completed',
-          started_at: new Date(Date.now() - 18 * 60 * 1000).toISOString(),
+          started_at: tripData.startedAt || new Date(Date.now() - durationValue * 60 * 1000).toISOString(),
           completed_at: new Date().toISOString(),
           route_data: {
             route: tripData.route,
@@ -111,6 +148,9 @@ const TripComplete = () => {
       }
 
       toast.success("Trip saved successfully!");
+      // Clear session data
+      sessionStorage.removeItem('completed_trip');
+      sessionStorage.removeItem('nav_destination');
       navigate("/history");
     } catch (error) {
       console.error('Error saving trip:', error);
@@ -121,6 +161,8 @@ const TripComplete = () => {
   };
 
   const shareTrip = () => {
+    if (!tripData) return null;
+
     const shareData = {
       title: `My trip to ${tripData.endLocation}`,
       text: `Just completed a ${tripData.distance} journey in ${tripData.duration}! 🗺️✨`,
@@ -136,6 +178,19 @@ const TripComplete = () => {
       />
     );
   };
+
+  if (!tripData) {
+    return (
+      <AppLayout showBottomNav={false}>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <p className="text-muted-foreground mb-4">No trip data available</p>
+            <Button onClick={() => navigate('/')}>Go Home</Button>
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout showBottomNav={false}>

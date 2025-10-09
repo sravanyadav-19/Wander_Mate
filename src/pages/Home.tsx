@@ -71,42 +71,18 @@ const Home = () => {
                 });
               } else {
                 console.warn('Weather API error:', weatherError);
-                // Fallback weather data
-                setWeatherData({
-                  temp: 28,
-                  condition: "Clear",
-                  description: "sunny",
-                  high: 32,
-                  low: 24,
-                  icon: "01d"
-                });
+                setWeatherData(null);
               }
             } catch (error) {
               console.error('Error getting location name:', error);
               setCurrentLocation("Location unavailable");
-              // Use more realistic fallback weather for Indian location
-              setWeatherData({
-                temp: 28,
-                condition: "Clear",
-                description: "sunny",
-                high: 32,
-                low: 24,
-                icon: "01d"
-              });
+              setWeatherData(null);
             }
           },
           (error) => {
             console.error('Error getting location:', error);
             setCurrentLocation("Location unavailable");
-            // Use more realistic fallback weather for Indian location
-            setWeatherData({
-              temp: 28,
-              condition: "Clear",
-              description: "sunny", 
-              high: 32,
-              low: 24,
-              icon: "01d"
-            });
+            setWeatherData(null);
           }
         );
       } else {
@@ -131,7 +107,7 @@ const Home = () => {
             const destinations = data.map(trip => ({
               name: trip.end_location || trip.title || 'Recent Trip',
               distance: trip.distance ? `${Number(trip.distance).toFixed(1)} km` : '0 km',
-              rating: "4.5"
+              rating: null
             }));
             setRecentDestinations(destinations);
           } else {
@@ -147,7 +123,7 @@ const Home = () => {
             const searchDestinations = searchData.map(search => ({
               name: search.query,
               distance: "Recent search",
-              rating: "4.5"
+              rating: null
             }));
             setRecentDestinations(searchDestinations);
           } else {
@@ -284,7 +260,7 @@ const Home = () => {
                           <p className="text-sm text-muted-foreground">{destination.distance}</p>
                         </div>
                       </div>
-                      {destination.rating !== "Recent search" && (
+                      {destination.rating && (
                         <div className="flex items-center gap-1">
                           <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
                           <span className="text-sm font-medium">{destination.rating}</span>
@@ -328,7 +304,7 @@ const Home = () => {
                 </div>
               ) : (
                 <div className="text-center py-4">
-                  <p className="text-sm text-muted-foreground">Loading weather...</p>
+                  <p className="text-sm text-muted-foreground">Weather data unavailable</p>
                 </div>
               )}
             </CardContent>
