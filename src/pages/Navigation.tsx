@@ -43,6 +43,9 @@ const Navigation = () => {
   const [showRouteOptions, setShowRouteOptions] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [userHeading, setUserHeading] = useState<number | null>(null);
+  const [tripStartTime] = useState<Date>(new Date());
+  const [startLocation, setStartLocation] = useState<{ lat: number; lng: number; name: string } | null>(null);
+  const [totalDistanceTraveled, setTotalDistanceTraveled] = useState(0);
   
   // Get destination from navigation state or session storage fallback
   const navState = (location.state as any) || (typeof window !== 'undefined' ? JSON.parse(sessionStorage.getItem('nav_destination') || 'null') : null);
@@ -391,6 +394,37 @@ const Navigation = () => {
         (position) => {
           const { latitude, longitude, speed, heading } = position.coords;
           
+          // Set start location on first position update
+          if (!startLocation) {
+            setStartLocation({ 
+              lat: latitude, 
+              lng: longitude, 
+              name: 'Current Location' // Will be updated with reverse geocoding
+            });
+            
+            // Reverse geocode start location
+            fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`)
+              .then(res => res.json())
+              .then(data => {
+                const locationName = data.locality || data.city || data.principalSubdivision || 'Current Location';
+                setStartLocation({ lat: latitude, lng: longitude, name: locationName });
+              })
+              .catch(() => {
+                console.warn('Could not reverse geocode start location');
+              });
+          }
+          
+          // Calculate distance traveled from previous location
+          if (userLocation) {
+            const distanceIncrement = calculateDistance(
+              userLocation.lat,
+              userLocation.lng,
+              latitude,
+              longitude
+            );
+            setTotalDistanceTraveled(prev => prev + distanceIncrement);
+          }
+          
           // Update user location state
           setUserLocation({ lat: latitude, lng: longitude });
           
@@ -502,8 +536,40 @@ const Navigation = () => {
 
   const endNavigation = () => {
     setIsNavigating(false);
+    
+    // Calculate trip duration
+    const tripEndTime = new Date();
+    const durationMs = tripEndTime.getTime() - tripStartTime.getTime();
+    const durationMinutes = Math.round(durationMs / 60000);
+    
+    // Get actual route data
+    const selectedRouteData = routes[selectedRoute];
+    const actualDistance = totalDistanceTraveled > 0 
+      ? totalDistanceTraveled 
+      : selectedRouteData?.distance / 1000 || 0;
+    
+    // Prepare trip data
+    const tripData = {
+      id: routeId,
+      startLocation: startLocation?.name || 'Starting Point',
+      endLocation: destinationName,
+      distance: `${actualDistance.toFixed(1)} km`,
+      duration: `${durationMinutes} min`,
+      route: selectedRouteData?.label || 'Completed Route',
+      startTime: tripStartTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      endTime: tripEndTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      date: tripEndTime.toLocaleDateString(),
+      startedAt: tripStartTime.toISOString(),
+      // Store numeric values for database
+      distanceValue: actualDistance,
+      durationValue: durationMinutes
+    };
+    
+    // Store in sessionStorage and navigation state
+    sessionStorage.setItem('completed_trip', JSON.stringify(tripData));
     sessionStorage.removeItem('nav_destination');
-    navigate(`/trip-complete/${routeId}`);
+    
+    navigate(`/trip-complete/${routeId}`, { state: { tripData } });
   };
 
   const emergencyCall = () => {

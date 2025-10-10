@@ -102,9 +102,9 @@ const TripComplete = () => {
 
     setIsSaving(true);
     try {
-      // Parse distance and duration safely
-      const distanceValue = parseFloat(tripData.distance) || 0;
-      const durationValue = parseInt(tripData.duration) || 0;
+      // Use numeric values from tripData or parse from strings
+      const distanceValue = tripData.distanceValue || parseFloat(tripData.distance) || 0;
+      const durationValue = tripData.durationValue || parseInt(tripData.duration) || 0;
 
       // Save trip to database
       const { data: trip, error: tripError } = await supabase
